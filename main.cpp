@@ -13,6 +13,8 @@ int main(int argc, char *argv[]) {
     std::cout << "Usage: <>" << std::endl;
   }
 
+  DGFEMSpace1D(N, Nx);
+
   return 0;
 }
 
