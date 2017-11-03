@@ -7,13 +7,16 @@
  */
 
 #include <iostream>
+#include "DGFEMSpace1D.h"
 
 int main(int argc, char *argv[]) {
   if(argc < 2) {
-    std::cout << "Usage: <>" << std::endl;
+    std::cout << "Usage: <Np> <Nx> " << std::endl;
   }
 
-  DGFEMSpace1D(N, Nx);
+  u_int K = atoi(argv[1]);
+  u_int Nx = atoi(argv[2]);
+  DGFEMSpace1D(K, Nx);
 
   return 0;
 }
