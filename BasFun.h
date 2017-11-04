@@ -9,37 +9,13 @@
 #ifndef BASFUN_H
 #define BASFUN_H
 
-double P0(double x) {
-  return 1;
-}
-double P1(double x) {
-  return x;
-}
-double P2(double x) {
-  return (3*x*x-1)/2;
-}
-double P3(double x) {
-  return (5*x*x*x-3*x)/2;
-}
-double P4(double x) {
-  return (35*x*x*x*x-30*x*x+3)/8;
-}
+#include <vector>
+#include <iostream>
 
-double gradient_0(double x) {
-  return 0;
-}
-double gradient_1(double x) {
-  return 1;
-}
-double gradient_2(double x) {
-  return 3*x;
-}
-double gradient_3(double x) {
-  return (15*x*x-3)/2;
-}
-double gradient_4(double x) {
-  return (140*x*x*x-60*x)/8;
-}
+extern u_int K;
+
+std::vector<double> Poly(double x);
+std::vector<double> PolyG(double x);
 
 #endif //BASFUN_H
 

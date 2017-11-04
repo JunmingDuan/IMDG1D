@@ -190,6 +190,14 @@ vvector<T> operator*(const vvector<T>& v1, const T1& a)
 }
 
 template<class T,class T1>
+vvector<T> operator*(const T1& a, const vvector<T>& v1)
+{
+    vvector<T> v3(v1);
+    v3 *= a;
+    return v3;
+}
+
+template<class T,class T1>
 vvector<T> operator/(const vvector<T>& v1, const T1& a)
 {
 	if(a==0){

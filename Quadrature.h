@@ -9,14 +9,15 @@
 #ifndef QUADRTURE_H
 #define QUADRTURE_H
 
-class QuadratureInfo {
-  private:
-    std::vector<double> x;
-    std::vector<double> pnt;
-    std::vector<double> wei;
-  public:
-    std::vector<std::vector<double> > LGL(u_int np);
+#include "TemplateQuadrature.h"
 
+class Quadrature : public TemplateQuadrature {
+  private:
+    double local_to_global_jacobian;
+  public:
+    void set_jacobi(const double j);
+    double l2g_jacobian();
+    void print(std::ostream&);
 };
 
 #endif //QUADRTURE_H
