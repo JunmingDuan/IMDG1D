@@ -8,14 +8,14 @@
 
 #ifndef QUADRTURE_H
 #define QUADRTURE_H
-#include <vector>
 
-class Quadrature {
+class QuadratureInfo {
   private:
+    std::vector<double> x;
     std::vector<double> pnt;
     std::vector<double> wei;
   public:
-    void local_to_global();
+    std::vector<std::vector<double> > LGL(u_int np);
 
 };
 
