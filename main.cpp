@@ -16,7 +16,8 @@ int main(int argc, char *argv[]) {
 
   u_int K = atoi(argv[1]);
   u_int Nx = atoi(argv[2]);
-  DGFEMSpace1D(K, Nx);
+  DGFEMSpace1D Problem(K, Nx);
+  Problem.run();
 
   return 0;
 }
