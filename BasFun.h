@@ -1,6 +1,6 @@
 /**
  * @file BasFun.h
- * @brief Basis function on [-1,1], Legendre polynomial not normalized.
+ * @brief Basis function on [-1,1], i.e. Legendre polynomial not normalized.
  * @author Duan Junming, duanjm@pku.edu.cn
  * @version 1.0
  * @date 2017-11-04
