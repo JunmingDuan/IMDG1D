@@ -12,6 +12,8 @@
 #include "BasFun.h"
 #include "Quadrature.h"
 #include "interval_crd_trs.h"
+#include "Eigen/Sparse"
+#include "Eigen/IterativeLinearSolvers"
 
 #define VEC vvector
 typedef VEC<VEC<double> > bU;
@@ -19,6 +21,9 @@ typedef VEC<bU> SOL;
 typedef int BM;
 typedef std::vector<std::vector<double> > QUAD;
 typedef VEC<double> (*func)(double x, double t);
+typedef Eigen::Triplet<double> T;
+typedef Eigen::SparseMatrix<double> MAT;
+typedef Eigen::VectorXd EVEC;
 
 /**
  * @brief dimension of the equation, 1 for scalar equation and 3 for Euler equations
@@ -35,6 +40,8 @@ class DGFEMSpace1D {
     std::vector<Quadrature> QUADINFO;
     SOL sol;
     BM bml, bmr;
+    MAT A;
+    EVEC rhs;
 
   public:
     DGFEMSpace1D(u_int Nx, double xl, double xr);
@@ -51,6 +58,15 @@ class DGFEMSpace1D {
      * @return 0, donnot change dt; 1, change dt to dtt
      */
     int forward_one_step(double dt, double* dtt);
+    /**
+     * @brief Newton_iter
+     *
+     * @param sol solution at t^n
+     * @param dt
+     */
+    void Newton_iter(SOL& sol, double dt);
+    void form_jacobian_rhs(SOL& sol);
+    void solve_leqn(MAT& A, EVEC& rhs);
     void run(double t_end);
     void print_solution(std::ostream&);
 };

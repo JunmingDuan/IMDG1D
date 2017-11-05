@@ -109,7 +109,42 @@ double DGFEMSpace1D::cal_dt() {
 }
 
 int DGFEMSpace1D::forward_one_step(double dt, double* dtt) {
+  Newton_iter(sol, dt);
   return 0;
+}
+
+void DGFEMSpace1D::Newton_iter(SOL& sol, double dt) {
+  form_jacobian_rhs(sol);
+  solve_leqn(A, rhs);
+}
+
+/**
+ * @brief form_jacobian_rhs
+ *        jacobian matrix is a (Nx*K) dimensional square matrix.
+ *        rhs is a (Nx*K) dimensional vector, we order the vector
+ *        in space firstly and then in polynomial space.
+ *
+ * @param sol
+ */
+void DGFEMSpace1D::form_jacobian_rhs(SOL& sol) {
+  std::vector< T > List;
+  for(u_int i = 0; i < Nx; ++i) {
+    for(u_int k = 0; k < K; ++k) {
+      List.push_back( T(0, 0, 1) );
+    }
+  }
+  A.setFromTriplets(List.begin(), List.end());
+  //std::cout << A.rows() << std::endl;
+  //std::cout << A.cols() << std::endl;
+  //std::cout << A.nonZeros() << std::endl;
+}
+
+void DGFEMSpace1D::solve_leqn(MAT& A, EVEC& rhs) {
+  Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Upper> solver;
+  solver.compute(A);
+  EVEC u = solver.solve(rhs);
+  std::cout << "iterations:     " << solver.iterations() << std::endl;
+  std::cout << "estimated error: " << solver.error()      << std::endl;
 }
 
 void DGFEMSpace1D::run(double t_end) {
