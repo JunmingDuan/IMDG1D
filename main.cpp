@@ -9,12 +9,29 @@
 #include <iostream>
 #include "DGFEMSpace1D.h"
 
-VEC<double> f0(double x, double t) {
-  VEC<double> u(3);
-  u[0] = pow(sin(x), 2);
-  u[1] = 1;//pow(sin(x), 2);
+VEC<double> f0(const double x, const double t) {
+  VEC<double> u(DIM);
+  u[0] = 1;//pow(sin(x), 2);
+  u[1] = 2*x;//pow(sin(x), 2);
   u[2] = x;//pow(sin(x), 2);
   return u;
+}
+
+VEC<double> f(const VEC<double>& u) {
+  VEC<double> F(DIM);
+  F = u;
+  return F;
+}
+
+VEC<VEC<double> > f_prime(const VEC<double>& u) {
+  VEC<VEC<double> > a(DIM);
+  for(u_int i = 0; i < DIM; ++i)
+    a[i].resize(DIM, 0);
+  //f(u)=u;
+  a[0][0] = 1;
+  a[1][1] = 2;
+  a[2][2] = 3;
+  return a;
 }
 
 int main(int argc, char *argv[]) {
@@ -31,12 +48,12 @@ int main(int argc, char *argv[]) {
   std::cout << "Set up problem..." << std::endl;
   DGFEMSpace1D Problem(Nx, xl, xr);
   std::cout << "Build quadrature info..." << std::endl;
-  Problem.BuildQuad(5);
+  Problem.BuildQuad(2);
   std::cout << "Initialize..." << std::endl;
   Problem.init(f0);
   std::cout << "Start to solve..." << std::endl;
   t1 = clock();
-  Problem.run(t_end);
+  Problem.run(f_prime, t_end);
   t2 = clock();
   std::cout << "Time consuming: " << std::setw(8) << (t2-t1)/CLOCKS_PER_SEC << std::endl;
 

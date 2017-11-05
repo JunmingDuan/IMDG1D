@@ -14,9 +14,11 @@
 class Quadrature : public TemplateQuadrature {
   private:
     double local_to_global_jacobian;
+    double global_to_local_jacobian;
   public:
-    void set_jacobi(const double j);
+    void set_jacobi(const double j1, const double j2);
     double l2g_jacobian();
+    double g2l_jacobian();
     void print(std::ostream&);
 };
 

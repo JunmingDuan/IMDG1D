@@ -20,7 +20,8 @@ typedef VEC<VEC<double> > bU;
 typedef VEC<bU> SOL;
 typedef int BM;
 typedef std::vector<std::vector<double> > QUAD;
-typedef VEC<double> (*func)(double x, double t);
+typedef VEC<double> (*func)(const double x, const double t);
+typedef VEC<VEC<double> > (*afunc)(const VEC<double>&);
 typedef Eigen::Triplet<double> T;
 typedef Eigen::SparseMatrix<double> MAT;
 typedef Eigen::VectorXd EVEC;
@@ -57,17 +58,17 @@ class DGFEMSpace1D {
      *
      * @return 0, donnot change dt; 1, change dt to dtt
      */
-    int forward_one_step(double dt, double* dtt);
+    int forward_one_step(afunc g, double dt, double* dtt);
     /**
      * @brief Newton_iter
      *
      * @param sol solution at t^n
      * @param dt
      */
-    void Newton_iter(SOL& sol, double dt);
-    void form_jacobian_rhs(SOL& sol);
+    void Newton_iter(SOL& sol, const afunc g, const double, const double);
+    void form_jacobian_rhs(SOL& sol, afunc, const double, const double);
     void solve_leqn(MAT& A, EVEC& rhs);
-    void run(double t_end);
+    void run(afunc g, double t_end);
     void print_solution(std::ostream&);
 };
 

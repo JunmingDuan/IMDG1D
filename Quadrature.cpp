@@ -8,12 +8,17 @@
 
 #include "Quadrature.h"
 
-void Quadrature::set_jacobi(const double j) {
-  local_to_global_jacobian = j;
+void Quadrature::set_jacobi(const double j1, const double j2) {
+  local_to_global_jacobian = j1;
+  global_to_local_jacobian = j2;
 }
 
 double Quadrature::l2g_jacobian() {
   return local_to_global_jacobian;
+}
+
+double Quadrature::g2l_jacobian() {
+  return global_to_local_jacobian;
 }
 
 void Quadrature::print(std::ostream& os) {
@@ -26,7 +31,7 @@ void Quadrature::print(std::ostream& os) {
     os << wei[i] << "\t";
   }
   os << "\n";
-  os << local_to_global_jacobian;
+  os << local_to_global_jacobian << " " << global_to_local_jacobian;
   os << std::endl;
 }
 
