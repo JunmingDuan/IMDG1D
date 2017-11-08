@@ -34,6 +34,10 @@ VEC<VEC<double> > f_prime(const VEC<double>& u) {
   return a;
 }
 
+VEC<double> exact(const double x, const double t) {
+  return (sin(4*x)-8*sin(2*x)+12*x)/32;
+}
+
 int main(int argc, char *argv[]) {
   if(argc < 5) {
     std::cout << "Usage: <Nx> <xl> <xr> <t_end> " << std::endl;
@@ -55,7 +59,7 @@ int main(int argc, char *argv[]) {
   t1 = clock();
   Problem.run(f_prime, t_end);
   t2 = clock();
-  std::cout << "Time consuming: " << std::setw(8) << (t2-t1)/CLOCKS_PER_SEC << std::endl;
+  std::cout << "Time consumed: " << std::setw(8) << (t2-t1)/CLOCKS_PER_SEC << std::endl;
 
   return 0;
 }

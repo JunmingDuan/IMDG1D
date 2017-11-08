@@ -122,6 +122,20 @@ void DGFEMSpace1D::Newton_iter(SOL& sol, const afunc g, const double dt, const d
   solve_leqn(A, rhs);
 }
 
+EVEC DGFEMSpace1D::NLF(const SOL& sol, const SOL& u, const double t, const double dt) {
+  EVEC fk(Nx*K*DIM);
+  for(u_int i = 0; i < Nx; ++i) {
+    for(u_int k = 0; k < K; ++k) {
+      //VEC<VEC<double> >
+      for(u_int d = 0; d < DIM; ++d) {
+        fk[i*(K*DIM)+k*DIM+d] = (sol[i][k][d]-u[i][k][d])/(2*k+1)
+          - Composition(i,x,t);
+      }
+    }
+  }
+  return fk;
+}
+
 /**
  * @brief form_jacobian_rhs
  *        jacobian matrix is a (Nx*K) dimensional square matrix.
@@ -151,32 +165,32 @@ void DGFEMSpace1D::form_jacobian_rhs(SOL& sol, afunc fp, const double dt, const 
         //std::cout << "d: " << d << std::endl;
         row = i*(K*DIM) + k*DIM + d;//fixed row
         ////time derivative: u_{i,d}^(k)
-        //col = row;
-        //val = 1./(2*k+1);
-        //List.push_back( T(row, col, val) );
+        col = row;
+        val = 1./(2*k+1);
+        List.push_back( T(row, col, val) );
 
         //element integral: u^(q)_{i,d}, q=0..K-1
-        //for(u_int q = 0; q < K; ++q) {//derivative of u^(q)_{i,m}
-        //  //std::cout << "q: " << q << std::endl;
-        //  for(u_int m = 0; m < DIM; ++m) {
-        //    //std::cout << "m: " << m << std::endl;
-        //    val = 0;
-        //    col = i*(K*DIM) + q*DIM + m;
-        //    for(u_int g = 0; g < pnt.size(); ++g) {//numerical integral
-        //      //std::cout << "g: " << g << std::endl;
-        //      VEC<VEC<double> > AF = fp(Composition(i, pnt[g], 0));
-        //      PolyVal = Poly(x[g]);
-        //      PGVal = PolyG(x[g]);
-        //      //only the m-th component of U, i.e.,
-        //      //U_{i,m}=\sum u^(q)_{i,m}*poly^(q) has component u^(q)_{i,m}
-        //      double pd = AF[d][m] * PolyVal[q];
-        //      //scale in the prime of the polynomial
-        //      val += pd * (PGVal[k]*QUADINFO[i].g2l_jacobian()) * wei[g];
-        //    }
-        //    val *= -dt/2;
-        //    List.push_back( T(row, col, val) );
-        //  }
-        //}
+        for(u_int q = 0; q < K; ++q) {//derivative of u^(q)_{i,m}
+          //std::cout << "q: " << q << std::endl;
+          for(u_int m = 0; m < DIM; ++m) {
+            //std::cout << "m: " << m << std::endl;
+            val = 0;
+            col = i*(K*DIM) + q*DIM + m;
+            for(u_int g = 0; g < pnt.size(); ++g) {//numerical integral
+              //std::cout << "g: " << g << std::endl;
+              VEC<VEC<double> > AF = fp(Composition(i, pnt[g], 0));
+              PolyVal = Poly(x[g]);
+              PGVal = PolyG(x[g]);
+              //only the m-th component of U, i.e.,
+              //U_{i,m}=\sum u^(q)_{i,m}*poly^(q) has component u^(q)_{i,m}
+              double pd = AF[d][m] * PolyVal[q];
+              //scale in the prime of the polynomial
+              val += pd * (PGVal[k]*QUADINFO[i].g2l_jacobian()) * wei[g];
+            }
+            val *= -dt/2;
+            List.push_back( T(row, col, val) );
+          }
+        }
         //fLux on the outer boundary
         gv[0] = mesh[i], gv[1] = mesh[i+1];
         PolyVal = Poly(lv[1]);
@@ -190,11 +204,22 @@ void DGFEMSpace1D::form_jacobian_rhs(SOL& sol, afunc fp, const double dt, const 
             List.push_back( T(row, col, val) );
 
             //(i+1)-th cell
-            col = (i+1)*(K*DIM) + q*DIM + m;
-            AF = fp(Composition(i+1, gv[1], 0));
-            pd = 0.5 * (AF[d][m]-alpha) * PolyVal[q];
-            val = pd * dt/(gv[1]-gv[0]) * PolyVal[k];
-            List.push_back( T(row, col, val) );
+            if(i < Nx-1) {
+              col = (i+1)*(K*DIM) + q*DIM + m;
+              AF = fp(Composition(i+1, gv[1], 0));
+              pd = 0.5 * (AF[d][m]-alpha) * PolyVal[q];
+              val = pd * dt/(gv[1]-gv[0]) * PolyVal[k];
+              List.push_back( T(row, col, val) );
+            }
+            else {//outflow right boundary
+              //(Nx)-th cell is the same as (Nx-1)-the cell
+              //we plus the coefficients to the col of (Nx-1)-th cell
+              col = (i)*(K*DIM) + q*DIM + m;//modified here
+              AF = fp(Composition(i, gv[1], 0));
+              pd = 0.5 * (AF[d][m]-alpha) * PolyVal[q];
+              val = pd * dt/(gv[1]-gv[0]) * PolyVal[k];
+              List.push_back( T(row, col, val) );
+            }
           }
         }
 
@@ -202,23 +227,30 @@ void DGFEMSpace1D::form_jacobian_rhs(SOL& sol, afunc fp, const double dt, const 
         PolyVal = Poly(lv[0]);
         for(u_int q = 0; q < K; ++q) {//derivative of u^(q)_{i,m} and u^(q)_{i-1,m}
           for(u_int m = 0; m < DIM; ++m) {
+            VEC<VEC<double> > AF;
+            double pd;
             //(i-1)-th cell
-            col = (i-1)*(K*DIM) + q*DIM + m;
-            std::cout << "boundary, i: " << i << std::endl;
-            VEC<VEC<double> > AF = fp(Composition(i-1, gv[1], 0));
-            std::cout << "boundary, i: " << i << std::endl;
-            double pd = 0.5 * (AF[d][m]+alpha) * PolyVal[q];
-            val = pd * dt/(gv[1]-gv[0]) * PolyVal[k];
-            List.push_back( T(row, col, val) );
+            if(i > 0) {
+              col = (i-1)*(K*DIM) + q*DIM + m;
+              AF= fp(Composition(i-1, gv[1], 0));
+              pd = 0.5 * (AF[d][m]+alpha) * PolyVal[q];
+              val = - pd * dt/(gv[1]-gv[0]) * PolyVal[k];
+              List.push_back( T(row, col, val) );
+            }
+            else {//zero left boundary
+            }
 
             //i-th cell
             col = i*(K*DIM) + q*DIM + m;
             AF = fp(Composition(i, gv[1], 0));
             pd = 0.5 * (AF[d][m]-alpha) * PolyVal[q];
-            val = pd * dt/(gv[1]-gv[0]) * PolyVal[k];
+            val = - pd * dt/(gv[1]-gv[0]) * PolyVal[k];
             List.push_back( T(row, col, val) );
           }
         }
+
+        //RHS
+        rhs[row] = -NLF(sol);
 
       }
     }

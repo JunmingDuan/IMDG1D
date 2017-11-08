@@ -66,6 +66,14 @@ class DGFEMSpace1D {
      * @param dt
      */
     void Newton_iter(SOL& sol, const afunc g, const double, const double);
+    /**
+     * @brief NLF nonlinear function
+     *
+     * @param sol
+     *
+     * @return RHS, i.e., F(sol)
+     */
+    EVEC NLF(const SOL& sol, const SOL& para_u, const double t, const double dt);
     void form_jacobian_rhs(SOL& sol, afunc, const double, const double);
     void solve_leqn(MAT& A, EVEC& rhs);
     void run(afunc g, double t_end);
