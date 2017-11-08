@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
   Problem.init(f0);
   std::cout << "Start to solve..." << std::endl;
   t1 = clock();
-  Problem.run(f_prime, t_end);
+  Problem.run(f, f_prime, t_end);
   t2 = clock();
   std::cout << "Time consumed: " << std::setw(8) << (t2-t1)/CLOCKS_PER_SEC << std::endl;
 

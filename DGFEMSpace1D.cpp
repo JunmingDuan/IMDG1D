@@ -111,25 +111,76 @@ double DGFEMSpace1D::cal_dt() {
   return 0.1;
 }
 
-int DGFEMSpace1D::forward_one_step(afunc g, double dt, double* dtt) {
+int DGFEMSpace1D::forward_one_step(const F FLUX, afunc g, double t, double dt, double* dtt) {
   double alpha = 1;
-  Newton_iter(sol, g, dt, alpha);
+  Newton_iter(sol, FLUX, g, t, dt, alpha);
   return 0;
 }
 
-void DGFEMSpace1D::Newton_iter(SOL& sol, const afunc g, const double dt, const double alpha) {
-  form_jacobian_rhs(sol, g, dt, alpha);
+VEC<double> DGFEMSpace1D::LxF(const F FLUX, const VEC<double>& a, const VEC<double>& b, const double alpha) {
+  VEC<double> lf(a.size());
+  lf = 0.5*(FLUX(a)+FLUX(b) - alpha*(b-a));
+  return lf;
+}
+
+void DGFEMSpace1D::Newton_iter(SOL& sol, const F FLUX, const afunc g, const double t, const double dt, const double alpha) {
+  form_jacobian_rhs(sol, FLUX, g, t, dt, alpha);
   solve_leqn(A, rhs);
 }
 
-EVEC DGFEMSpace1D::NLF(const SOL& sol, const SOL& u, const double t, const double dt) {
+int kronecker(const int a, const int b) {
+  if(a == b) return 1;
+  else return 0;
+}
+
+EVEC DGFEMSpace1D::NLF(const F FLUX, const SOL& sol, const SOL& u, const double alpha, const double t, const double dt) {
   EVEC fk(Nx*K*DIM);
+  int row;
+  std::vector<double> x = TemQuad.points();
+  std::vector<double> pnt, wei;
+  std::vector<double> PolyVal, PGVal;
+  std::vector<double> lv(2), gv(2);
+  lv[0] = -1, lv[1] = 1;
   for(u_int i = 0; i < Nx; ++i) {
+    pnt = QUADINFO[i].points();
+    wei = QUADINFO[i].weight();
     for(u_int k = 0; k < K; ++k) {
-      //VEC<VEC<double> >
+      VEC<double> fu(DIM), fu1(DIM);
       for(u_int d = 0; d < DIM; ++d) {
-        fk[i*(K*DIM)+k*DIM+d] = (sol[i][k][d]-u[i][k][d])/(2*k+1)
-          - Composition(i,x,t);
+        row = i*(K*DIM) + k*DIM + d;//fixed row
+        //time derivative
+        fk[row] = (sol[i][k][d]-u[i][k][d])/(2*k+1);
+        //element integral
+        for(u_int g = 0; g < pnt.size(); ++g) {
+          PGVal = PolyG(x[g]);
+          fu = Composition(i,pnt[g],t);
+          fk[row] += - dt/2 * fu[d] * (PGVal[k]*QUADINFO[i].g2l_jacobian()) * wei[g];
+        }
+        //
+        gv[0] = mesh[i], gv[1] = mesh[i+1];
+        VEC<double> flux;
+        //flux on the outer boundary
+        PolyVal = Poly(lv[1]);
+        fu = Composition(i,gv[1],t);
+        if(i < Nx-1) {
+          fu1 = Composition(i+1,gv[1],t);
+        }
+        else fu1 = fu;
+        flux = LxF(FLUX, fu, fu1, alpha);
+        fk[row] += flux[d] * dt/(gv[1]-gv[0]) * PolyVal[k];
+
+        //flux on the inner boundary
+        fu = Composition(i,gv[0],t);
+        if(i > 1) {
+          fu1 = Composition(i-1,gv[0],t);
+        }
+        else {
+          for(u_int d = 0; d < DIM; ++d)
+            fu1[d] = 0;
+        }
+        flux = LxF(FLUX, fu1, fu, alpha);
+        fk[row] -= flux[d] * dt/(gv[1]-gv[0]) * PolyVal[k];
+
       }
     }
   }
@@ -146,7 +197,7 @@ EVEC DGFEMSpace1D::NLF(const SOL& sol, const SOL& u, const double t, const doubl
  *
  * @param sol
  */
-void DGFEMSpace1D::form_jacobian_rhs(SOL& sol, afunc fp, const double dt, const double alpha) {
+void DGFEMSpace1D::form_jacobian_rhs(SOL& sol, const F FLUX, afunc fp, const double t, const double dt, const double alpha) {
   int row, col;
   double val;
   std::vector<double> pnt, wei;
@@ -199,7 +250,7 @@ void DGFEMSpace1D::form_jacobian_rhs(SOL& sol, afunc fp, const double dt, const 
             //i-th cell
             col = i*(K*DIM) + q*DIM + m;
             VEC<VEC<double> > AF = fp(Composition(i, gv[1], 0));
-            double pd = 0.5 * (AF[d][m]+alpha) * PolyVal[q];
+            double pd = 0.5 * (AF[d][m]+alpha*kronecker(d,m)) * PolyVal[q];
             val = pd * dt/(gv[1]-gv[0]) * PolyVal[k];
             List.push_back( T(row, col, val) );
 
@@ -207,7 +258,7 @@ void DGFEMSpace1D::form_jacobian_rhs(SOL& sol, afunc fp, const double dt, const 
             if(i < Nx-1) {
               col = (i+1)*(K*DIM) + q*DIM + m;
               AF = fp(Composition(i+1, gv[1], 0));
-              pd = 0.5 * (AF[d][m]-alpha) * PolyVal[q];
+              pd = 0.5 * (AF[d][m]-alpha*kronecker(d,m)) * PolyVal[q];
               val = pd * dt/(gv[1]-gv[0]) * PolyVal[k];
               List.push_back( T(row, col, val) );
             }
@@ -216,7 +267,7 @@ void DGFEMSpace1D::form_jacobian_rhs(SOL& sol, afunc fp, const double dt, const 
               //we plus the coefficients to the col of (Nx-1)-th cell
               col = (i)*(K*DIM) + q*DIM + m;//modified here
               AF = fp(Composition(i, gv[1], 0));
-              pd = 0.5 * (AF[d][m]-alpha) * PolyVal[q];
+              pd = 0.5 * (AF[d][m]-alpha*kronecker(d,m)) * PolyVal[q];
               val = pd * dt/(gv[1]-gv[0]) * PolyVal[k];
               List.push_back( T(row, col, val) );
             }
@@ -233,7 +284,7 @@ void DGFEMSpace1D::form_jacobian_rhs(SOL& sol, afunc fp, const double dt, const 
             if(i > 0) {
               col = (i-1)*(K*DIM) + q*DIM + m;
               AF= fp(Composition(i-1, gv[1], 0));
-              pd = 0.5 * (AF[d][m]+alpha) * PolyVal[q];
+              pd = 0.5 * (AF[d][m]+alpha*kronecker(d,m)) * PolyVal[q];
               val = - pd * dt/(gv[1]-gv[0]) * PolyVal[k];
               List.push_back( T(row, col, val) );
             }
@@ -243,14 +294,14 @@ void DGFEMSpace1D::form_jacobian_rhs(SOL& sol, afunc fp, const double dt, const 
             //i-th cell
             col = i*(K*DIM) + q*DIM + m;
             AF = fp(Composition(i, gv[1], 0));
-            pd = 0.5 * (AF[d][m]-alpha) * PolyVal[q];
+            pd = 0.5 * (AF[d][m]-alpha*kronecker(d,m)) * PolyVal[q];
             val = - pd * dt/(gv[1]-gv[0]) * PolyVal[k];
             List.push_back( T(row, col, val) );
           }
         }
 
         //RHS
-        rhs[row] = -NLF(sol);
+        rhs = -NLF(FLUX, sol, sol, alpha, t, dt);
 
       }
     }
@@ -273,12 +324,12 @@ void DGFEMSpace1D::solve_leqn(MAT& A, EVEC& rhs) {
   std::cout << "estimated error: " << solver.error()      << std::endl;
 }
 
-void DGFEMSpace1D::run(afunc g, double t_end) {
+void DGFEMSpace1D::run(F FLUX, afunc g, double t_end) {
   double t(0), dt(0), dtt(0);
   while (t < t_end) {
     dt = cal_dt();
     if(t+dt > t_end) dt = t_end-t;
-    forward_one_step(g, dt, &dtt);
+    forward_one_step(FLUX, g, t, dt, &dtt);
     t += dt;
   }
 }

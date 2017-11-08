@@ -22,6 +22,7 @@ typedef int BM;
 typedef std::vector<std::vector<double> > QUAD;
 typedef VEC<double> (*func)(const double x, const double t);
 typedef VEC<VEC<double> > (*afunc)(const VEC<double>&);
+typedef VEC<double> (*F)(const VEC<double>&);
 typedef Eigen::Triplet<double> T;
 typedef Eigen::SparseMatrix<double> MAT;
 typedef Eigen::VectorXd EVEC;
@@ -58,14 +59,15 @@ class DGFEMSpace1D {
      *
      * @return 0, donnot change dt; 1, change dt to dtt
      */
-    int forward_one_step(afunc g, double dt, double* dtt);
+    int forward_one_step(const F, afunc g, double t, double dt, double* dtt);
     /**
      * @brief Newton_iter
      *
      * @param sol solution at t^n
      * @param dt
      */
-    void Newton_iter(SOL& sol, const afunc g, const double, const double);
+    VEC<double> LxF(const F, const VEC<double>&, const VEC<double>&, const double);
+    void Newton_iter(SOL& sol, const F, const afunc g, const double, const double, const double);
     /**
      * @brief NLF nonlinear function
      *
@@ -73,10 +75,10 @@ class DGFEMSpace1D {
      *
      * @return RHS, i.e., F(sol)
      */
-    EVEC NLF(const SOL& sol, const SOL& para_u, const double t, const double dt);
-    void form_jacobian_rhs(SOL& sol, afunc, const double, const double);
+    EVEC NLF(const F, const SOL& sol, const SOL& para_u, const double alpha, const double t, const double dt);
+    void form_jacobian_rhs(SOL& sol, const F, afunc, const double, const double, const double);
     void solve_leqn(MAT& A, EVEC& rhs);
-    void run(afunc g, double t_end);
+    void run(F, afunc g, double t_end);
     void print_solution(std::ostream&);
 };
 
