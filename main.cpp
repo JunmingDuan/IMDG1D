@@ -13,13 +13,15 @@ VEC<double> f0(const double x, const double t) {
   VEC<double> u(DIM);
   u[0] = 1;//pow(sin(x), 2);
   u[1] = 2*x;//pow(sin(x), 2);
-  u[2] = x;//pow(sin(x), 2);
+  u[2] = 3*x;//pow(sin(x), 2);
   return u;
 }
 
 VEC<double> f(const VEC<double>& u) {
   VEC<double> F(DIM);
-  F = u;
+  F[0] = u[0];
+  F[1] = 2*u[1];
+  F[2] = 3*u[2];
   return F;
 }
 

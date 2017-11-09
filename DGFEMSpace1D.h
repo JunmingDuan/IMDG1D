@@ -49,7 +49,7 @@ class DGFEMSpace1D {
     DGFEMSpace1D(u_int Nx, double xl, double xr);
     void BuildQuad(u_int np);
     void Projection(u_int cell, func f0, double t, bU&);
-    VEC<double> Composition(u_int cell, double x, double t);
+    VEC<double> Composition(const SOL&, u_int cell, double x, double t);
     void init(func f0);
     double cal_dt();
     /**
@@ -80,6 +80,7 @@ class DGFEMSpace1D {
     void solve_leqn(MAT& A, EVEC& rhs);
     void run(F, afunc g, double t_end);
     void print_solution(std::ostream&);
+    MAT get_A() const;
 };
 
 #endif //DGFEMSPACE1D_H
