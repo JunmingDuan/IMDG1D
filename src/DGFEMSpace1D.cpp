@@ -100,7 +100,7 @@ void DGFEMSpace1D::init(func f0) {
   for(u_int i = 0; i < Nx; ++i) {
     Projection(i, f0, 0, sol[i]);
   }
-  print_solution(std::cout);
+  //print_solution(std::cout);
 }
 
 double DGFEMSpace1D::cal_dt() {
@@ -137,6 +137,7 @@ EVEC DGFEMSpace1D::NLF(const F FLUX, const SOL& sol, const SOL& u, const double 
   std::vector<double> PolyVal, PGVal;
   std::vector<double> lv(2), gv(2);
   lv[0] = -1, lv[1] = 1;
+  fk.setZero();
   for(u_int i = 0; i < Nx; ++i) {
     pnt = QUADINFO[i].points();
     wei = QUADINFO[i].weight();
@@ -147,20 +148,11 @@ EVEC DGFEMSpace1D::NLF(const F FLUX, const SOL& sol, const SOL& u, const double 
         row = i*(K*DIM) + k*DIM + d;//fixed row
         //time derivative
         fk[row] = (sol[i][k][d]-u[i][k][d])/(2*k+1);
-        if(row == 4) {
-          std::cout << "time: " << fk[4] << std::endl;
-        }
         //element integral
         for(u_int g = 0; g < pnt.size(); ++g) {
           PGVal = PolyG(x[g]);
           fu = FLUX(Composition(sol,i,pnt[g],t));
           fk[row] += - dt/2 * fu[d] * (PGVal[k]*QUADINFO[i].g2l_jacobian()) * wei[g];
-          if(row == 4) {
-            std::cout << "element, fu[d]: " << fu[d] << std::endl;
-          }
-        }
-        if(row == 4) {
-          std::cout << "element: " << fk[4] << std::endl;
         }
         //
         gv[0] = mesh[i], gv[1] = mesh[i+1];
@@ -174,12 +166,6 @@ EVEC DGFEMSpace1D::NLF(const F FLUX, const SOL& sol, const SOL& u, const double 
         else U1 = U;
         flux = LxF(FLUX, U, U1, alpha);
         fk[row] += flux[d] * dt/(gv[1]-gv[0]) * PolyVal[k];
-        if(row == 4) {
-          std::cout << U1[0] << U1[1] << U1[2] << std::endl;
-          std::cout << flux[0] << flux[1] << flux[2] << std::endl;
-          std::cout << PolyVal[k] << std::endl;
-          std::cout << "outer: " << fk[4] << std::endl;
-        }
 
         //flux on the inner boundary
         PolyVal = Poly(lv[0]);
@@ -193,12 +179,6 @@ EVEC DGFEMSpace1D::NLF(const F FLUX, const SOL& sol, const SOL& u, const double 
         }
         flux = LxF(FLUX, U1, U, alpha);
         fk[row] -= flux[d] * dt/(gv[1]-gv[0]) * PolyVal[k];
-        if(row == 4) {
-          std::cout << U[0] << U[1] << U[2] << std::endl;
-          std::cout << flux[0] << flux[1] << flux[2] << std::endl;
-          std::cout << PolyVal[k] << std::endl;
-          std::cout << "inner: " << fk[4] << std::endl;
-        }
 
       }
     }
@@ -234,7 +214,7 @@ void DGFEMSpace1D::form_jacobian_rhs(SOL& sol, const F FLUX, afunc fp, const dou
       for(u_int d = 0; d < DIM; ++d) {//d-th equation
         //std::cout << "d: " << d << std::endl;
         row = i*(K*DIM) + k*DIM + d;//fixed row
-        ////time derivative: u_{i,d}^(k)
+        //time derivative: u_{i,d}^(k)
         col = row;
         val = 1./(2*k+1);
         List.push_back( T(row, col, val) );
@@ -256,17 +236,8 @@ void DGFEMSpace1D::form_jacobian_rhs(SOL& sol, const F FLUX, afunc fp, const dou
               double pd = AF[d][m] * PolyVal[q];
               //scale in the prime of the polynomial
               val += pd * (PGVal[k]*QUADINFO[i].g2l_jacobian()) * wei[g];
-              if(i == 0 && k == 1 && d == 1 && q == 1 && m == 1) {
-                std::cout << "QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ" << std::endl;
-                std::cout << "col: " << col << std::endl;
-                std::cout << "pd: " << pd << std::endl;
-              }
             }
             val *= -dt/2;
-            if(i == 0 && k == 1 && d == 1 && q == 1 && m == 1) {
-              std::cout << "QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ" << std::endl;
-              std::cout << "element integral: " << val << std::endl;
-            }
             List.push_back( T(row, col, val) );
           }
         }
@@ -281,11 +252,6 @@ void DGFEMSpace1D::form_jacobian_rhs(SOL& sol, const F FLUX, afunc fp, const dou
             VEC<VEC<double> > AF = fp(Composition(sol,i, gv[1], 0));
             double pd = 0.5 * (AF[d][m]+alpha*kronecker(d,m)) * LocPolyVal[q];
             val = pd * dt/(gv[1]-gv[0]) * PolyVal[k];
-            if(i == 0 && k == 1 && d == 1 && q == 1 && m == 1) {
-              std::cout << "QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ" << std::endl;
-              std::cout << "col: " << col << std::endl;
-              std::cout << "outer i-th: " << val << std::endl;
-            }
             List.push_back( T(row, col, val) );
 
             //(i+1)-th cell
@@ -295,11 +261,6 @@ void DGFEMSpace1D::form_jacobian_rhs(SOL& sol, const F FLUX, afunc fp, const dou
               AF = fp(Composition(sol,i+1, gv[1], 0));
               pd = 0.5 * (AF[d][m]-alpha*kronecker(d,m)) * LocPolyVal[q];
               val = pd * dt/(gv[1]-gv[0]) * PolyVal[k];
-              if(i == 0 && k == 1 && d == 1 && q == 1 && m == 1) {
-              std::cout << "QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ" << std::endl;
-              std::cout << "col: " << col << std::endl;
-                std::cout << "outer i+1: " << val << std::endl;
-              }
               List.push_back( T(row, col, val) );
             }
             else {//outflow right boundary
@@ -310,11 +271,6 @@ void DGFEMSpace1D::form_jacobian_rhs(SOL& sol, const F FLUX, afunc fp, const dou
               AF = fp(Composition(sol,i, gv[1], 0));
               pd = 0.5 * (AF[d][m]-alpha*kronecker(d,m)) * LocPolyVal[q];
               val = pd * dt/(gv[1]-gv[0]) * PolyVal[k];
-              if(i == 0 && k == 1 && d == 1 && q == 1 && m == 1) {
-              std::cout << "QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ" << std::endl;
-                std::cout << "col: " << col << std::endl;
-                std::cout << "outer i+1: " << val << std::endl;
-              }
               List.push_back( T(row, col, val) );
             }
           }
@@ -333,11 +289,6 @@ void DGFEMSpace1D::form_jacobian_rhs(SOL& sol, const F FLUX, afunc fp, const dou
               AF= fp(Composition(sol,i-1, gv[0], 0));
               pd = 0.5 * (AF[d][m]+alpha*kronecker(d,m)) * LocPolyVal[q];
               val = - pd * dt/(gv[1]-gv[0]) * PolyVal[k];
-              if(i == 0 && k == 1 && d == 1 && q == 1 && m == 1) {
-              std::cout << "QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ" << std::endl;
-                std::cout << "col: " << col << std::endl;
-                std::cout << "inner i-1: " << val << std::endl;
-              }
               List.push_back( T(row, col, val) );
             }
             else {//zero left boundary
@@ -349,11 +300,6 @@ void DGFEMSpace1D::form_jacobian_rhs(SOL& sol, const F FLUX, afunc fp, const dou
             AF = fp(Composition(sol,i, gv[0], 0));
             pd = 0.5 * (AF[d][m]-alpha*kronecker(d,m)) * LocPolyVal[q];
             val = - pd * dt/(gv[1]-gv[0]) * PolyVal[k];
-            if(i == 0 && k == 1 && d == 1 && q == 1 && m == 1) {
-              std::cout << "QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ" << std::endl;
-                std::cout << "col: " << col << std::endl;
-              std::cout << "inner i: " << val << std::endl;
-            }
             List.push_back( T(row, col, val) );
           }
         }
