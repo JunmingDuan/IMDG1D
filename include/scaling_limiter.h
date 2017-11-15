@@ -1,0 +1,5 @@
+#ifndef SCALING_LIMITER_H
+#define SCALING_LIMITER_H
+
+#endif //SCALING_LIMITER_H
+
