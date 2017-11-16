@@ -16,17 +16,19 @@ DGFEMSpace1D::DGFEMSpace1D(u_int Nx, double xl, double xr)
     mesh[i] = i*h;
   }
   sol.resize(Nx);
+  sol1.resize(Nx);
   for(u_int i = 0; i < Nx; ++i) {
     sol[i].resize(K);
+    sol1[i].resize(K);
     for(u_int k = 0; k < K; ++k) {
       sol[i][k].resize(DIM);
+      sol1[i][k].resize(DIM);
     }
   }
   A.resize(Nx*K*DIM, Nx*K*DIM);
   rhs.resize(Nx*K*DIM);
-  //for(u_int i = 0; i < Nx+1; ++i) {
-    //std::cout << mesh[i] << std::endl;
-  //}
+  vec_u1.resize(Nx*K*DIM);
+  vec_u2.resize(Nx*K*DIM);
 }
 
 void DGFEMSpace1D::BuildQuad(u_int np) {
@@ -66,13 +68,13 @@ void DGFEMSpace1D::Projection(u_int cell, func f0, double t, bU& u) {
   std::vector<double> x = TemQuad.points();
   std::vector<double> p = QUADINFO[cell].points();
   std::vector<double> w = QUADINFO[cell].weight();
-  VEC<double> U;
+  VEC<double> U(DIM), u0(DIM);
   std::vector<double> V;
   double jab = QUADINFO[cell].l2g_jacobian();
   for(u_int k = 0; k < K; ++k) {
     double basis(0);
     for(u_int g = 0; g < x.size(); ++g) {
-      U = f0(p[g], t);
+      U = f0(u0, p[g], t);
       V = Poly(x[g]);
       u[k] += jab*U*V[k]*w[g];
       basis += jab*V[k]*V[k]*w[g];
@@ -104,12 +106,13 @@ void DGFEMSpace1D::init(func f0) {
 }
 
 double DGFEMSpace1D::cal_dt() {
-  return 0.1;
+  return 10*h;
 }
 
-int DGFEMSpace1D::forward_one_step(const F FLUX, afunc g, double t, double dt, double* dtt) {
+int DGFEMSpace1D::forward_one_step(const SOL& sol, const F FLUX, afunc g, func source,
+    double t, double dt, double* dtt, SOL& sol_new) {
   double alpha = 1;
-  Newton_iter(sol, FLUX, g, t, dt, alpha);
+  Newton_iter(sol, FLUX, g, source, t, dt, alpha, sol_new);
   return 0;
 }
 
@@ -119,9 +122,30 @@ VEC<double> DGFEMSpace1D::LxF(const F FLUX, const VEC<double>& a, const VEC<doub
   return lf;
 }
 
-void DGFEMSpace1D::Newton_iter(SOL& sol, const F FLUX, const afunc g, const double t, const double dt, const double alpha) {
-  form_jacobian_rhs(sol, FLUX, g, t, dt, alpha);
-  solve_leqn(A, rhs);
+void DGFEMSpace1D::Newton_iter(const SOL& sol, const F FLUX, const afunc g, func source,
+    const double t, const double dt, const double alpha, SOL& sol_new) {
+  int Nt_ite(0);
+  double Nt_err(1), Nt_tol(1e-13);
+  sol_new = sol;
+  SOL2EVEC(sol_new, vec_u1);
+  while (Nt_err > Nt_tol) {
+    form_jacobian_rhs(sol_new, FLUX, g, source, t, dt, alpha);
+    solve_leqn(A, rhs, vec_u2);
+    std::cout << "=====sol^n,A,rhs,sol^{n+1}=====" << std::endl;
+    std::cout << "vec_u1:" << std::endl;
+    std::cout << vec_u1 << std::endl;
+    //std::cout << "A:" << std::endl;
+    //std::cout << A << std::endl;
+    //std::cout << "rhs:" << std::endl;
+    //std::cout << rhs << std::endl;
+    std::cout << "vec_u2:" << std::endl;
+    std::cout << vec_u2 << std::endl;
+    Nt_err = vec_u2.norm();
+    vec_u1 += vec_u2;
+    EVEC2SOL(sol_new, vec_u1);
+    Nt_ite++;
+    std::cout << "Nt_ite: " << Nt_ite << ", Nt_err: " << Nt_err << std::endl;
+  }
 }
 
 int kronecker(const int a, const int b) {
@@ -129,7 +153,8 @@ int kronecker(const int a, const int b) {
   else return 0;
 }
 
-EVEC DGFEMSpace1D::NLF(const F FLUX, const SOL& sol, const SOL& u, const double alpha, const double t, const double dt) {
+EVEC DGFEMSpace1D::NLF(const F FLUX, const SOL& sol, const SOL& u, func source,
+    const double alpha, const double t, const double dt) {
   EVEC fk(Nx*K*DIM);
   int row;
   std::vector<double> x = TemQuad.points();
@@ -138,9 +163,14 @@ EVEC DGFEMSpace1D::NLF(const F FLUX, const SOL& sol, const SOL& u, const double 
   std::vector<double> lv(2), gv(2);
   lv[0] = -1, lv[1] = 1;
   fk.setZero();
+  bU tmp_u(K);
+  for(u_int k = 0; k < K; ++k) {
+    tmp_u[k].resize(DIM);
+  }
   for(u_int i = 0; i < Nx; ++i) {
     pnt = QUADINFO[i].points();
     wei = QUADINFO[i].weight();
+    Projection(i, source, t, tmp_u);//projection of the source term
     for(u_int k = 0; k < K; ++k) {
       VEC<double> fu(DIM), fu1(DIM);
       VEC<double> U(DIM), U1(DIM);
@@ -180,6 +210,7 @@ EVEC DGFEMSpace1D::NLF(const F FLUX, const SOL& sol, const SOL& u, const double 
         flux = LxF(FLUX, U1, U, alpha);
         fk[row] -= flux[d] * dt/(gv[1]-gv[0]) * PolyVal[k];
 
+        fk[row] -= tmp_u[k][d] * dt;///(gv[1]-gv[0]);
       }
     }
   }
@@ -196,7 +227,8 @@ EVEC DGFEMSpace1D::NLF(const F FLUX, const SOL& sol, const SOL& u, const double 
  *
  * @param sol
  */
-void DGFEMSpace1D::form_jacobian_rhs(SOL& sol, const F FLUX, afunc fp, const double t, const double dt, const double alpha) {
+void DGFEMSpace1D::form_jacobian_rhs(const SOL& sol, const F FLUX, afunc fp, func source,
+    const double t, const double dt, const double alpha) {
   int row, col;
   double val;
   std::vector<double> pnt, wei;
@@ -305,7 +337,7 @@ void DGFEMSpace1D::form_jacobian_rhs(SOL& sol, const F FLUX, afunc fp, const dou
         }
 
         //RHS
-        rhs = -NLF(FLUX, sol, sol, alpha, t, dt);
+        rhs = -NLF(FLUX, sol, sol, source, alpha, t, dt);
 
       }
     }
@@ -322,33 +354,111 @@ void DGFEMSpace1D::form_jacobian_rhs(SOL& sol, const F FLUX, afunc fp, const dou
   //std::cout << std::defaultfloat;
 }
 
-void DGFEMSpace1D::solve_leqn(MAT& A, EVEC& rhs) {
+void DGFEMSpace1D::solve_leqn(MAT& A, const EVEC& rhs, EVEC& u) {
   Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Upper> solver;
   solver.compute(A);
-  EVEC u = solver.solve(rhs);
+  u = solver.solve(rhs);
+  std::cout << "======solve_leqn======" << std::endl;
   std::cout << "iterations:     " << solver.iterations() << std::endl;
   std::cout << "estimated error: " << solver.error()      << std::endl;
+  std::cout << "======================" << std::endl;
 }
 
-void DGFEMSpace1D::run(F FLUX, afunc g, double t_end) {
+void DGFEMSpace1D::run(F FLUX, afunc g, func source, double t_end) {
+  int ite(0), pp(1);
   double t(0), dt(0), dtt(0);
-  while (t < t_end) {
+  VEC<double> err(DIM), tol(DIM);
+  tol[0] = 1e-12; tol[1] = 1e-12; tol[2] = 1e-12;
+  err[0] = 1; err[1] = 1; err[2] = 1;
+  while ( err > tol ) {//|| pp == 0 ) {
     dt = cal_dt();
-    if(t+dt > t_end) dt = t_end-t;
-    forward_one_step(FLUX, g, t, dt, &dtt);
+    forward_one_step(sol, FLUX, g, source, t, dt, &dtt, sol1);
+    pp = judge_positivity(sol1);
+    //while (pp == 0) {
+      //std::cout << "Not positive!!" << std::endl;
+      //dt = 0.5*dt;
+      //forward_one_step(sol, FLUX, g, t, dt, &dtt, sol1);
+      //pp = judge_positivity(sol1);
+    //}
+    err = cal_norm(sol, sol1, 2);
+    sol = sol1;
+    ite++;
     t += dt;
+    std::cout << "ite: " << ite << ", dt: " << dt << ", t: " << t << ", err: ";
+    std::cout << err << std::endl;
+  }
+}
+
+int DGFEMSpace1D::judge_positivity(const SOL& sol) {
+  double eps(1e-13);
+  std::vector<double> p;
+  VEC<double> average(DIM);
+  for(u_int i = 0; i < Nx; ++i) {
+    p = QUADINFO[i].points();
+    for(u_int g = 0; g < p.size(); ++g) {
+      average += Composition(sol,i,p[g],0);
+    }
+    for(u_int d = 0; d < DIM; ++d) {
+      if(average[d] < eps) return 0;
+    }
+  }
+  return 1;
+}
+
+void DGFEMSpace1D::SOL2EVEC(const SOL& sol, EVEC& vec_u) {
+  for(u_int i = 0; i < Nx; ++i) {
+    for(u_int k = 0; k < K; ++k) {
+      for(u_int d = 0; d < DIM; ++d) {
+        vec_u[i*(K*DIM)+k*DIM+d] = sol[i][k][d];
+      }
+    }
+  }
+}
+
+void DGFEMSpace1D::EVEC2SOL(SOL& sol, const EVEC& vec_u) {
+  for(u_int i = 0; i < Nx; ++i) {
+    for(u_int k = 0; k < K; ++k) {
+      for(u_int d = 0; d < DIM; ++d) {
+        sol[i][k][d] = vec_u[i*(K*DIM)+k*DIM+d];
+      }
+    }
+  }
+}
+
+VEC<double> DGFEMSpace1D::cal_norm(const SOL& s1, const SOL& s2, int n) {
+  VEC<double> norm(DIM), tmp;
+  double center;
+  if(n == 2) {
+    for(u_int i = 0; i < Nx; ++i) {
+      center = 0.5*(mesh[i]+mesh[i+1]);
+      tmp = Composition(s1,i,center,0)-Composition(s2,i,center,0);
+      for(u_int d = 0; d < DIM; ++d) {
+        norm[d] += pow(tmp[d], 2);
+      }
+    }
+    for(u_int d = 0; d < DIM; ++d) {
+      norm[d] = sqrt(norm[d]*h);
+    }
+    return norm;
+  }
+  else {
+    std::cout << "Wrong norm choice!" << std::endl;
+    return norm;
   }
 }
 
 void DGFEMSpace1D::print_solution(std::ostream& os) {
+  double center;
+	os.precision(8);
+	os << std::showpos;
+  os.setf(std::ios::scientific);
   for(u_int i = 0; i < Nx; ++i) {
-    for(u_int k = 0; k < K; ++k) {
-      os << sol[i][k] << "\n";
-    }
-    os << "\n";
+    center = 0.5*(mesh[i]+mesh[i+1]);
+    os << center << " " << Composition(sol,i,center,0) << "\n";
   }
   os << std::endl;
   os << std::defaultfloat;
+  //os.setf(std::ios::floatfield);
 }
 
 MAT DGFEMSpace1D::get_A() const {

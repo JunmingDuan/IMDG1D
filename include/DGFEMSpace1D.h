@@ -20,8 +20,9 @@ typedef VEC<VEC<double> > bU;
 typedef VEC<bU> SOL;
 typedef int BM;
 typedef std::vector<std::vector<double> > QUAD;
-typedef VEC<double> (*func)(const double x, const double t);
+typedef VEC<double> (*func)(const VEC<double>&,double,double);
 typedef VEC<VEC<double> > (*afunc)(const VEC<double>&);
+//typedef VEC<double> (*src)(const VEC<double>&, double, double);
 typedef VEC<double> (*F)(const VEC<double>&);
 typedef Eigen::Triplet<double> T;
 typedef Eigen::SparseMatrix<double> MAT;
@@ -30,7 +31,7 @@ typedef Eigen::VectorXd EVEC;
 /**
  * @brief dimension of the equation, 1 for scalar equation and 3 for Euler equations
  */
-const u_int DIM = 3;
+const u_int DIM = 1;
 
 class DGFEMSpace1D {
   private:
@@ -40,10 +41,10 @@ class DGFEMSpace1D {
     VEC<double> mesh;
     TemplateQuadrature TemQuad;
     std::vector<Quadrature> QUADINFO;
-    SOL sol;
+    SOL sol, sol1;
     BM bml, bmr;
     MAT A;
-    EVEC rhs;
+    EVEC rhs, vec_u1, vec_u2;
 
   public:
     DGFEMSpace1D(u_int Nx, double xl, double xr);
@@ -59,7 +60,8 @@ class DGFEMSpace1D {
      *
      * @return 0, donnot change dt; 1, change dt to dtt
      */
-    int forward_one_step(const F, afunc g, double t, double dt, double* dtt);
+    int forward_one_step(const SOL&, const F, afunc, func,
+        double t, double dt, double* dtt, SOL&);
     /**
      * @brief Newton_iter
      *
@@ -67,7 +69,8 @@ class DGFEMSpace1D {
      * @param dt
      */
     VEC<double> LxF(const F, const VEC<double>&, const VEC<double>&, const double);
-    void Newton_iter(SOL& sol, const F, const afunc g, const double, const double, const double);
+    void Newton_iter(const SOL& sol, const F, const afunc g, func,
+        const double, const double, const double, SOL&);
     /**
      * @brief NLF nonlinear function
      *
@@ -75,10 +78,16 @@ class DGFEMSpace1D {
      *
      * @return RHS, i.e., F(sol)
      */
-    EVEC NLF(const F, const SOL& sol, const SOL& para_u, const double alpha, const double t, const double dt);
-    void form_jacobian_rhs(SOL& sol, const F, afunc, const double, const double, const double);
-    void solve_leqn(MAT& A, EVEC& rhs);
-    void run(F, afunc g, double t_end);
+    EVEC NLF(const F, const SOL& sol, const SOL& para_u, func,
+        const double alpha, const double t, const double dt);
+    void form_jacobian_rhs(const SOL& sol, const F, afunc, func,
+        const double, const double, const double);
+    void solve_leqn(MAT& A, const EVEC& rhs, EVEC&);
+    void run(F, afunc, func, double t_end);
+    int judge_positivity(const SOL&);
+    void SOL2EVEC(const SOL&, EVEC&);
+    void EVEC2SOL(SOL&, const EVEC&);
+    VEC<double> cal_norm(const SOL&, const SOL&, int);
     void print_solution(std::ostream&);
     MAT get_A() const;
 };
