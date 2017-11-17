@@ -72,7 +72,9 @@ int main(int argc, char *argv[]) {
   t1 = clock();
   Problem.run(f, f_prime, source, t_end);
   t2 = clock();
-  std::string filename("example1.dat");
+  std::stringstream s;
+  s << "example1_Nx" << Nx << "_K" << K << ".dat";
+  std::string filename(s.str());
   std::ofstream out(filename.c_str());
   std::cout << "Print solution to " << filename << "..." << std::endl;
   Problem.print_solution(out);

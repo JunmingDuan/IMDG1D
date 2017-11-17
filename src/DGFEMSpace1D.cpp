@@ -131,15 +131,15 @@ void DGFEMSpace1D::Newton_iter(const SOL& sol, const F FLUX, const afunc g, func
   while (Nt_err > Nt_tol) {
     form_jacobian_rhs(sol_new, FLUX, g, source, t, dt, alpha);
     solve_leqn(A, rhs, vec_u2);
-    std::cout << "=====sol^n,A,rhs,sol^{n+1}=====" << std::endl;
-    std::cout << "vec_u1:" << std::endl;
-    std::cout << vec_u1 << std::endl;
+    //std::cout << "=====sol^n,A,rhs,sol^{n+1}=====" << std::endl;
+    //std::cout << "vec_u1:" << std::endl;
+    //std::cout << vec_u1 << std::endl;
     //std::cout << "A:" << std::endl;
     //std::cout << A << std::endl;
     //std::cout << "rhs:" << std::endl;
     //std::cout << rhs << std::endl;
-    std::cout << "vec_u2:" << std::endl;
-    std::cout << vec_u2 << std::endl;
+    //std::cout << "vec_u2:" << std::endl;
+    //std::cout << vec_u2 << std::endl;
     Nt_err = vec_u2.norm();
     vec_u1 += vec_u2;
     EVEC2SOL(sol_new, vec_u1);
