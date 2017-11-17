@@ -20,8 +20,7 @@ SRCDIR:=../src/              # 除了当前目录外，其他的源代码文件�
 # # Now alter any implicit rules' variables if you like, e.g.:
 
 CC:=g++
-CFLAGS := -g -w -O3 -fopenmp
-CFLAGS := -g -Wall -O3 -fopenmp -std=c++11
+CFLAGS := -g -Wall -O3 -std=c++11 -fopenmp
 CPPFLAGS := $(CFLAGS)
 CPPFLAGS += $(addprefix -I,$(INCLUDES))
 CPPFLAGS += -MMD

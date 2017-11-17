@@ -128,8 +128,10 @@ void DGFEMSpace1D::Newton_iter(const SOL& sol, const F FLUX, const afunc g, func
   double Nt_err(1), Nt_tol(1e-13);
   sol_new = sol;
   SOL2EVEC(sol_new, vec_u1);
+  //solver.setMaxIterations(3*vec_u1.size());
+  solver.setTolerance(1e-8);
   while (Nt_err > Nt_tol) {
-    form_jacobian_rhs(sol_new, FLUX, g, source, t, dt, alpha);
+    form_jacobian_rhs(sol_new, sol, FLUX, g, source, t, dt, alpha);
     solve_leqn(A, rhs, vec_u2);
     //std::cout << "=====sol^n,A,rhs,sol^{n+1}=====" << std::endl;
     //std::cout << "vec_u1:" << std::endl;
@@ -153,7 +155,7 @@ int kronecker(const int a, const int b) {
   else return 0;
 }
 
-EVEC DGFEMSpace1D::NLF(const F FLUX, const SOL& sol, const SOL& u, func source,
+EVEC DGFEMSpace1D::NLF(const F FLUX, const SOL& sol, const SOL& soln, func source,
     const double alpha, const double t, const double dt) {
   EVEC fk(Nx*K*DIM);
   int row;
@@ -177,7 +179,7 @@ EVEC DGFEMSpace1D::NLF(const F FLUX, const SOL& sol, const SOL& u, func source,
       for(u_int d = 0; d < DIM; ++d) {
         row = i*(K*DIM) + k*DIM + d;//fixed row
         //time derivative
-        fk[row] = (sol[i][k][d]-u[i][k][d])/(2*k+1);
+        fk[row] = (sol[i][k][d]-soln[i][k][d])/(2*k+1);
         //element integral
         for(u_int g = 0; g < pnt.size(); ++g) {
           PGVal = PolyG(x[g]);
@@ -225,9 +227,10 @@ EVEC DGFEMSpace1D::NLF(const F FLUX, const SOL& sol, const SOL& u, func source,
  *        rhs[i*(K*DIM)+k*DIM+d], is the d-th physical variable of the k-th
  *        polynomial in the i-the cell.
  *
- * @param sol
+ * @param sol current sol
+ *        soln sol at t^n
  */
-void DGFEMSpace1D::form_jacobian_rhs(const SOL& sol, const F FLUX, afunc fp, func source,
+void DGFEMSpace1D::form_jacobian_rhs(const SOL& sol, const SOL& soln, const F FLUX, afunc fp, func source,
     const double t, const double dt, const double alpha) {
   int row, col;
   double val;
@@ -337,7 +340,7 @@ void DGFEMSpace1D::form_jacobian_rhs(const SOL& sol, const F FLUX, afunc fp, fun
         }
 
         //RHS
-        rhs = -NLF(FLUX, sol, sol, source, alpha, t, dt);
+        rhs = -NLF(FLUX, sol, soln, source, alpha, t, dt);
 
       }
     }
@@ -345,19 +348,14 @@ void DGFEMSpace1D::form_jacobian_rhs(const SOL& sol, const F FLUX, afunc fp, fun
   A.setZero();
   A.setFromTriplets(List.begin(), List.end());
   A.makeCompressed();
-  //std::cout << setiosflags(std::ios::fixed) << std::setprecision(3)
-    //<< std::setiosflags(std::ios::right) << std::setw(5)
-    //<< std::setiosflags(std::ios::showpos) << std::setfill(' ') << A << std::endl;
-  //std::cout << A.rows() << std::endl;
-  //std::cout << A.cols() << std::endl;
-  //std::cout << A.nonZeros() << std::endl;
-  //std::cout << std::defaultfloat;
 }
 
 void DGFEMSpace1D::solve_leqn(MAT& A, const EVEC& rhs, EVEC& u) {
-  Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Upper> solver;
   solver.compute(A);
   u = solver.solve(rhs);
+  //solver.analyzePattern(A);
+  //solver.factorize(A);
+  //u = solver.solve(rhs);
   std::cout << "======solve_leqn======" << std::endl;
   std::cout << "iterations:     " << solver.iterations() << std::endl;
   std::cout << "estimated error: " << solver.error()      << std::endl;

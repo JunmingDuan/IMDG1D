@@ -1,0 +1,1 @@
+ratsimp(integrate(sin(x)^4, x));

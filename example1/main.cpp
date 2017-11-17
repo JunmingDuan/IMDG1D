@@ -9,6 +9,7 @@
 #include <iostream>
 #include <string>
 #include "DGFEMSpace1D.h"
+//#define EIGEN_DONT_PARALLELIZE
 
 VEC<double> f0(const VEC<double>& u, double x, double t) {
   VEC<double> U(DIM);
@@ -65,7 +66,7 @@ int main(int argc, char *argv[]) {
   std::cout << "Set up problem..." << std::endl;
   DGFEMSpace1D Problem(Nx, xl, xr);
   std::cout << "Build quadrature info..." << std::endl;
-  Problem.BuildQuad(3);
+  Problem.BuildQuad(4);
   std::cout << "Initialize..." << std::endl;
   Problem.init(f0);
   std::cout << "Start to solve..." << std::endl;
@@ -96,6 +97,8 @@ int main(int argc, char *argv[]) {
   //out1 << std::defaultfloat;
   //out1.close();
 
+  //Eigen::setNbThreads(4);
+  //std::cout << Eigen::nbThreads() << std::endl;
   return 0;
 }
 

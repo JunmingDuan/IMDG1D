@@ -13,6 +13,7 @@
 #include "Quadrature.h"
 #include "interval_crd_trs.h"
 #include "Eigen/Sparse"
+#include "Eigen/SparseLU"
 #include "Eigen/IterativeLinearSolvers"
 
 #define VEC vvector
@@ -25,7 +26,7 @@ typedef VEC<VEC<double> > (*afunc)(const VEC<double>&);
 //typedef VEC<double> (*src)(const VEC<double>&, double, double);
 typedef VEC<double> (*F)(const VEC<double>&);
 typedef Eigen::Triplet<double> T;
-typedef Eigen::SparseMatrix<double> MAT;
+typedef Eigen::SparseMatrix<double, Eigen::RowMajor> MAT;
 typedef Eigen::VectorXd EVEC;
 
 /**
@@ -45,6 +46,11 @@ class DGFEMSpace1D {
     BM bml, bmr;
     MAT A;
     EVEC rhs, vec_u1, vec_u2;
+    //Eigen::SparseLU<MAT, Eigen::COLAMDOrdering<Eigen::Index>> solver;
+    Eigen::BiCGSTAB<MAT> solver;
+    //Eigen::BiCGSTAB<Eigen::SparseMatrix<double>, Eigen::IdentityPreconditioner> solver;
+    //Eigen::BiCGSTAB<Eigen::SparseMatrix<double>, Eigen::IncompleteLUT<double>> solver;
+    //Eigen::BiCGSTAB<Eigen::SparseMatrix<double>, Eigen::DiagonalPreconditioner<double>> solver;
 
   public:
     DGFEMSpace1D(u_int Nx, double xl, double xr);
@@ -78,9 +84,9 @@ class DGFEMSpace1D {
      *
      * @return RHS, i.e., F(sol)
      */
-    EVEC NLF(const F, const SOL& sol, const SOL& para_u, func,
+    EVEC NLF(const F, const SOL& sol, const SOL& soln, func,
         const double alpha, const double t, const double dt);
-    void form_jacobian_rhs(const SOL& sol, const F, afunc, func,
+    void form_jacobian_rhs(const SOL& sol, const SOL& soln, const F, afunc, func,
         const double, const double, const double);
     void solve_leqn(MAT& A, const EVEC& rhs, EVEC&);
     void run(F, afunc, func, double t_end);
