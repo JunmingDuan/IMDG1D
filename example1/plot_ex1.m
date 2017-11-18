@@ -63,9 +63,19 @@ case 0;
   err(3) = sqrt(norm(ex3-y3,2)^2/size(ex3,1));
   err(4) = sqrt(norm(ex4-y4,2)^2/size(ex4,1));
   err(5) = sqrt(norm(ex5-y5,2)^2/size(ex5,1));
-  fprintf('%.4e\n',err);
   plot(exact(:,1), exact(:,2), '-k', x1, y1, 'o', x2, y2, '*', x3, y3, '--', x4, ...
   y4, '^', x5, y5, 'v');
+  order = [
+  log(err(1)/err(2))/log(2);
+  log(err(2)/err(3))/log(2);
+  log(err(3)/err(4))/log(2);
+  log(err(4)/err(5))/log(2)];
+  fprintf('%.4e\n',err,order);
+  %min(y1)
+  %min(y2)
+  %min(y3)
+  %min(y4)
+  %min(y5)
 otherwise
   disp('Wrong choice of plot');
 end

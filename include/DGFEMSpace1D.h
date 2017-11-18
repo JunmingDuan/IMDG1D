@@ -15,6 +15,7 @@
 #include "Eigen/Sparse"
 #include "Eigen/SparseLU"
 #include "Eigen/IterativeLinearSolvers"
+#include "unsupported/Eigen/IterativeSolvers"
 
 #define VEC vvector
 typedef VEC<VEC<double> > bU;
@@ -46,11 +47,16 @@ class DGFEMSpace1D {
     BM bml, bmr;
     MAT A;
     EVEC rhs, vec_u1, vec_u2;
-    //Eigen::SparseLU<MAT, Eigen::COLAMDOrdering<Eigen::Index>> solver;
-    Eigen::BiCGSTAB<MAT> solver;
-    //Eigen::BiCGSTAB<Eigen::SparseMatrix<double>, Eigen::IdentityPreconditioner> solver;
-    //Eigen::BiCGSTAB<Eigen::SparseMatrix<double>, Eigen::IncompleteLUT<double>> solver;
-    //Eigen::BiCGSTAB<Eigen::SparseMatrix<double>, Eigen::DiagonalPreconditioner<double>> solver;
+    //Eigen::SparseLU<MAT> solver;
+    //Eigen::SparseLU<MAT, Eigen::NaturalOrdering<int>> solver;
+    //Eigen::BiCGSTAB<MAT> solver;
+    //Eigen::BiCGSTAB<MAT, Eigen::IncompleteLUT<double>> solver;
+    //Eigen::BiCGSTAB<MAT, Eigen::IdentityPreconditioner> solver;
+    //Eigen::BiCGSTAB<MAT, Eigen::DiagonalPreconditioner<double>> solver;
+    //Eigen::GMRES<MAT> solver;
+    //Eigen::GMRES<MAT, Eigen::IdentityPreconditioner> solver;
+    Eigen::GMRES<MAT, Eigen::IncompleteLUT<double>> solver;
+    //Eigen::GMRES<MAT, Eigen::DiagonalPreconditioner<double>> solver;
 
   public:
     DGFEMSpace1D(u_int Nx, double xl, double xr);
