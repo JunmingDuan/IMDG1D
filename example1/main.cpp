@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
   std::cout << "Set up problem..." << std::endl;
   DGFEMSpace1D Problem(Nx, xl, xr);
   std::cout << "Build quadrature info..." << std::endl;
-  Problem.BuildQuad(4);
+  Problem.BuildQuad(6);
   std::cout << "Initialize..." << std::endl;
   Problem.init(f0);
   std::cout << "Start to solve..." << std::endl;

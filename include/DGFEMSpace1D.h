@@ -24,7 +24,6 @@ typedef int BM;
 typedef std::vector<std::vector<double> > QUAD;
 typedef VEC<double> (*func)(const VEC<double>&,double,double);
 typedef VEC<VEC<double> > (*afunc)(const VEC<double>&);
-//typedef VEC<double> (*src)(const VEC<double>&, double, double);
 typedef VEC<double> (*F)(const VEC<double>&);
 typedef Eigen::Triplet<double> T;
 typedef Eigen::SparseMatrix<double, Eigen::RowMajor> MAT;
@@ -47,7 +46,7 @@ class DGFEMSpace1D {
     BM bml, bmr;
     MAT A;
     EVEC rhs, vec_u1, vec_u2;
-    //Eigen::SparseLU<MAT> solver;
+    Eigen::SparseLU<MAT> solver;
     //Eigen::SparseLU<MAT, Eigen::NaturalOrdering<int>> solver;
     //Eigen::BiCGSTAB<MAT> solver;
     //Eigen::BiCGSTAB<MAT, Eigen::IncompleteLUT<double>> solver;
@@ -55,7 +54,7 @@ class DGFEMSpace1D {
     //Eigen::BiCGSTAB<MAT, Eigen::DiagonalPreconditioner<double>> solver;
     //Eigen::GMRES<MAT> solver;
     //Eigen::GMRES<MAT, Eigen::IdentityPreconditioner> solver;
-    Eigen::GMRES<MAT, Eigen::IncompleteLUT<double>> solver;
+    //Eigen::GMRES<MAT, Eigen::IncompleteLUT<double>> solver;
     //Eigen::GMRES<MAT, Eigen::DiagonalPreconditioner<double>> solver;
 
   public:

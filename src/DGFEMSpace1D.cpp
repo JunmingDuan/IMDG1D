@@ -60,9 +60,9 @@ void DGFEMSpace1D::BuildQuad(u_int np) {
 
 void DGFEMSpace1D::Projection(u_int cell, func f0, double t, bU& u) {
   //set to zero
-  for(u_int i = 0; i < K; ++i) {
+  for(u_int k = 0; k < K; ++k) {
     for(u_int d = 0; d < DIM; ++d) {
-      u[i][d] = 0;
+      u[k][d] = 0;
     }
   }
   std::vector<double> x = TemQuad.points();
@@ -126,25 +126,25 @@ VEC<double> DGFEMSpace1D::LxF(const F FLUX, const VEC<double>& a, const VEC<doub
 void DGFEMSpace1D::Newton_iter(const SOL& sol, const F FLUX, const afunc g, func source,
     const double t, const double dt, const double alpha, SOL& sol_new) {
   int Nt_ite(0);
-  double Nt_err(1), Fval_norm(1), Nt_tol(1e-12), Nt_Ftol(1e-12);
+  double Nt_err(1), Fval_norm(1), Nt_tol(1e-14), Nt_Ftol(1e-14);
   sol_new = sol;
   SOL2EVEC(sol_new, vec_u1);
   while (Nt_err > Nt_tol && Fval_norm > Nt_Ftol) {
     form_jacobian_rhs(sol_new, sol, FLUX, g, source, t, dt, alpha);
     solve_leqn(A, rhs, vec_u2);
     Nt_err = vec_u2.norm();
-    std::cout << "=====sol^n,A,rhs,sol^{n+1}=====" << std::endl;
-    std::cout << "vec_u1:" << std::endl;
-    std::cout << vec_u1 << std::endl;
-    std::cout << "A:" << std::endl;
-    std::cout << A << std::endl;
-    std::cout << "rhs:" << std::endl;
-    std::cout << rhs << std::endl;
-    std::cout << "rhs_norm:" << std::endl;
-    std::cout << rhs.norm() << std::endl;
+    //std::cout << "=====sol^n,A,rhs,sol^{n+1}=====" << std::endl;
+    //std::cout << "vec_u1:" << std::endl;
+    //std::cout << vec_u1 << std::endl;
+    //std::cout << "A:" << std::endl;
+    //std::cout << A << std::endl;
+    //std::cout << "rhs:" << std::endl;
+    //std::cout << rhs << std::endl;
+    //std::cout << "rhs_norm:" << std::endl;
+    //std::cout << rhs.norm() << std::endl;
     vec_u1 += vec_u2;
-    std::cout << "vec_u1:" << std::endl;
-    std::cout << vec_u1 << std::endl;
+    //std::cout << "vec_u1:" << std::endl;
+    //std::cout << vec_u1 << std::endl;
     EVEC2SOL(sol_new, vec_u1);
     Fval_norm = NLF(FLUX, sol_new, sol, source, alpha, t, dt).norm();
     Nt_ite++;
@@ -357,26 +357,26 @@ void DGFEMSpace1D::form_jacobian_rhs(const SOL& sol, const SOL& soln, const F FL
 }
 
 void DGFEMSpace1D::solve_leqn(MAT& A, const EVEC& rhs, EVEC& u) {
-  std::cout << "======solve_leqn by iterative solver======" << std::endl;
-  solver.setMaxIterations(vec_u1.size());
-  solver.setTolerance(1e-15);
-  solver.compute(A);
-  u = solver.solve(rhs);
-  std::cout << "iterations:     " << solver.iterations() << std::endl;
-  std::cout << "estimated error: " << solver.error()      << std::endl;
-  std::cout << "======================" << std::endl;
-
-  //std::cout << "======solve_leqn by SuperLU======" << std::endl;
-  //solver.analyzePattern(A);
-  //solver.factorize(A);
+  //std::cout << "======solve_leqn by iterative solver======" << std::endl;
+  //solver.setMaxIterations(vec_u1.size());
+  //solver.setTolerance(1e-15);
+  //solver.compute(A);
   //u = solver.solve(rhs);
-  //std::cout << "=================================" << std::endl;
+  //std::cout << "iterations:     " << solver.iterations() << std::endl;
+  //std::cout << "estimated error: " << solver.error()      << std::endl;
+  //std::cout << "======================" << std::endl;
+
+  std::cout << "======solve_leqn by SuperLU======" << std::endl;
+  solver.analyzePattern(A);
+  solver.factorize(A);
+  u = solver.solve(rhs);
+  std::cout << "=================================" << std::endl;
 }
 
 void DGFEMSpace1D::run(F FLUX, afunc g, func source, double t_end) {
   int ite(0), pp(1);
   double t(0), dt(0), dtt(0);
-  VEC<double> err(DIM,1), tol(DIM,1e-12);
+  VEC<double> err(DIM,1), tol(DIM,1e-15);
   //tol[0] = 1e-12; tol[1] = 1e-12; tol[2] = 1e-12;
   //err[0] = 1; err[1] = 1; err[2] = 1;
   while ( err > tol ) {//|| pp == 0 ) {
@@ -457,13 +457,17 @@ VEC<double> DGFEMSpace1D::cal_norm(const SOL& s1, const SOL& s2, int n) {
 }
 
 void DGFEMSpace1D::print_solution(std::ostream& os) {
-  double center;
 	os.precision(8);
 	os << std::showpos;
   os.setf(std::ios::scientific);
+  std::vector<double> x = TemQuad.points();
   for(u_int i = 0; i < Nx; ++i) {
-    center = 0.5*(mesh[i]+mesh[i+1]);
-    os << center << " " << Composition(sol,i,center,0) << "\n";
+    std::vector<double> w = QUADINFO[i].weight();
+    std::vector<double> p = QUADINFO[i].points();
+    for(u_int g = 0; g < x.size(); ++g) {
+      os << p[g] << " "  << w[g] << " " << Composition(sol,i,p[g],0) << "\n";
+    }
+    os << "\n";
   }
   os << std::endl;
   os << std::defaultfloat;
