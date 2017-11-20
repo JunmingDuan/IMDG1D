@@ -29,7 +29,6 @@ typedef Eigen::Triplet<double> T;
 typedef Eigen::SparseMatrix<double, Eigen::RowMajor> MAT;
 typedef Eigen::VectorXd EVEC;
 
-extern double Nt_tol, Nt_Ftol, TOL;
 /**
  * @brief dimension of the equation, 1 for scalar equation and 3 for Euler equations
  */
@@ -101,6 +100,7 @@ class DGFEMSpace1D {
     void SOL2EVEC(const SOL&, EVEC&);
     void EVEC2SOL(SOL&, const EVEC&);
     VEC<double> cal_norm(const SOL&, const SOL&, int);
+    VEC<double> cal_norm(const SOL& s1, int n);
     void print_solution(std::ostream&);
     MAT get_A() const;
 };

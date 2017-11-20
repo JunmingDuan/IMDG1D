@@ -125,18 +125,23 @@ case 0;
   end
   plot(exact(:,1), exact(:,2), '-k', x1, y1, 'o', x2, y2, '*', x3, y3, '--', x4, ...
   y4, '^', x5, y5, 'v');
+  %cal_order
+  min_y = [min(y1);min(y2);min(y3);min(y4);min(y5)];
   order = [
-  log(err(1,:)./err(2,:))/log(2);
-  log(err(2,:)./err(3,:))/log(2);
-  log(err(3,:)./err(4,:))/log(2);
-  log(err(4,:)./err(5,:))/log(2)];
-  disp(err);
-  disp(order);
-  %min(y1)
-  %min(y2)
-  %min(y3)
-  %min(y4)
-  %min(y5)
+  zeros(1,3);
+  log2(err(1,:)./err(2,:));
+  log2(err(2,:)./err(3,:));
+  log2(err(3,:)./err(4,:));
+  log2(err(4,:)./err(5,:))];
+  N = [20;40;80;160;320];
+  for n = 1:5
+    fprintf('%3d ', N(n));
+    for i = 1:3
+      fprintf('%.3e %.2f ', err(n,i), order(n,i));
+    end
+    fprintf('%.3e\n', min_y(n));
+  end
+
 otherwise
   disp('Wrong choice of plot');
 end

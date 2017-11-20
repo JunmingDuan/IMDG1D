@@ -8,7 +8,9 @@
 
 #include <iostream>
 #include <string>
-#include "DGFEMSpace1D.h"
+#include <sstream>
+//#include "DGFEMSpace1D.h"
+#include "DGFEMSpace1D_GSL.h"
 //#define EIGEN_DONT_PARALLELIZE
 
 VEC<double> f0(const VEC<double>& u, double x, double t) {
@@ -63,7 +65,7 @@ int main(int argc, char *argv[]) {
   double xl = atof(argv[2]);
   double xr = atof(argv[3]);
   double t_end = atof(argv[4]);
-  double Nt_tol(1e-13), Nt_Ftol(1e-13), TOL(1e-12);
+  double Nt_tol(1e-13), Nt_Ftol(1e-13), TOL(1e-14);
   std::cout << "Set up problem..." << std::endl;
   DGFEMSpace1D Problem(Nx, xl, xr, Nt_tol, Nt_Ftol, TOL);
   std::cout << "Build quadrature info..." << std::endl;

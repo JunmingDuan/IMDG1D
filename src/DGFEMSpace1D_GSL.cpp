@@ -6,10 +6,13 @@
  * @date 2017-11-19
  */
 
+#include <stdio.h>
+#include <stdlib.h>
 #include "DGFEMSpace1D_GSL.h"
 
-DGFEMSpace1D::DGFEMSpace1D(u_int Nx, double xl, double xr)
-  : Nx(Nx), xl(xl), xr(xr) {
+DGFEMSpace1D::DGFEMSpace1D(u_int Nx, double xl, double xr,
+    double Nt_tol, double Nt_Ftol, double TOL)
+  : Nx(Nx), xl(xl), xr(xr), Nt_tol(Nt_tol), Nt_Ftol(Nt_Ftol), TOL(TOL) {
   mesh.resize(Nx+1);
   h = (xr - xl)/Nx;
   for(u_int i = 0; i < Nx+1; ++i) {
@@ -25,10 +28,10 @@ DGFEMSpace1D::DGFEMSpace1D(u_int Nx, double xl, double xr)
       sol1[i][k].resize(DIM);
     }
   }
-  *A = gsl_spmatrix_alloc(Nx*K*DIM, Nx*K*DIM);
-  *rhs = gsl_vector_alloc(Nx*K*DIM);
-  *vec_u1 = gsl_vector_alloc(Nx*K*DIM);
-  *vec_u2 = gsl_vector_alloc(Nx*K*DIM);
+  A = gsl_spmatrix_alloc(Nx*K*DIM, Nx*K*DIM);
+  rhs = gsl_vector_alloc(Nx*K*DIM);
+  vec_u1 = gsl_vector_alloc(Nx*K*DIM);
+  vec_u2 = gsl_vector_alloc(Nx*K*DIM);
 }
 
 void DGFEMSpace1D::BuildQuad(u_int np) {
@@ -102,7 +105,7 @@ void DGFEMSpace1D::init(func f0) {
 }
 
 double DGFEMSpace1D::cal_dt() {
-  return 10*h;
+  return h;
 }
 
 int DGFEMSpace1D::forward_one_step(const SOL& sol, const F FLUX, afunc g, func source,
@@ -122,27 +125,29 @@ VEC<double> DGFEMSpace1D::LxF(const F FLUX, const VEC<double>& a, const VEC<doub
 void DGFEMSpace1D::Newton_iter(const SOL& sol, const F FLUX, const afunc g, func source,
     const double t, const double dt, const double alpha, SOL& sol_new) {
   int Nt_ite(0);
-  double Nt_err(1), Fval_norm(1), Nt_tol(1e-12), Nt_Ftol(1e-12);
+  double Nt_err(1), Fval_norm(1);
   sol_new = sol;
   SOL2EVEC(sol_new, vec_u1);
   while (Nt_err > Nt_tol && Fval_norm > Nt_Ftol) {
     form_jacobian_rhs(sol_new, sol, FLUX, g, source, t, dt, alpha);
-    solve_leqn(A, rhs, vec_u2);
-    Nt_err = vec_u2.norm();
+    Nt_err = gsl_blas_dnrm2(vec_u2);
     //std::cout << "=====sol^n,A,rhs,sol^{n+1}=====" << std::endl;
     //std::cout << "vec_u1:" << std::endl;
-    //std::cout << vec_u1 << std::endl;
+    //gsl_vector_fprintf(stdout, vec_u1, "%.6lf");
     //std::cout << "A:" << std::endl;
-    //std::cout << A << std::endl;
+    //gsl_spmatrix_fprintf(stdout, A, "%.6lf");
     //std::cout << "rhs:" << std::endl;
-    //std::cout << rhs << std::endl;
+    //gsl_vector_fprintf(stdout, rhs, "%.6lf");
     //std::cout << "rhs_norm:" << std::endl;
-    //std::cout << rhs.norm() << std::endl;
-    vec_u1 += vec_u2;
+    //std::cout << gsl_blas_dnrm2(rhs) << std::endl;
+    solve_leqn(A, rhs, vec_u2);
+    gsl_vector_add(vec_u1, vec_u2);
     //std::cout << "vec_u1:" << std::endl;
-    //std::cout << vec_u1 << std::endl;
+    //gsl_vector_fprintf(stdout, vec_u1, "%.6lf");
     EVEC2SOL(sol_new, vec_u1);
-    Fval_norm = NLF(FLUX, sol_new, sol, source, alpha, t, dt).norm();
+    gsl_vector * tmp = gsl_vector_alloc(Nx*K*DIM);
+    *tmp = NLF(FLUX, sol_new, sol, source, alpha, t, dt);
+    Fval_norm = gsl_blas_dnrm2(tmp);
     Nt_ite++;
     std::cout << "Nt_ite: " << Nt_ite
       << ", Nt_err: " << Nt_err
@@ -185,7 +190,8 @@ EVEC DGFEMSpace1D::NLF(const F FLUX, const SOL& sol, const SOL& soln, func sourc
         for(u_int g = 0; g < pnt.size(); ++g) {
           PGVal = PolyG(x[g]);
           fu = FLUX(Composition(sol,i,pnt[g],t));
-          fk[row] += - dt/2 * fu[d] * (PGVal[k]*QUADINFO[i].g2l_jacobian()) * wei[g];
+          //fk[row] += - dt/2 * fu[d] * (PGVal[k]*QUADINFO[i].g2l_jacobian()) * wei[g];
+          *(fk->data+row) += - dt/2 * fu[d] * (PGVal[k]*QUADINFO[i].g2l_jacobian()) * wei[g];
         }
         //
         gv[0] = mesh[i], gv[1] = mesh[i+1];
@@ -198,7 +204,7 @@ EVEC DGFEMSpace1D::NLF(const F FLUX, const SOL& sol, const SOL& soln, func sourc
         }
         else U1 = U;
         flux = LxF(FLUX, U, U1, alpha);
-        fk[row] += flux[d] * dt/(gv[1]-gv[0]) * PolyVal[k];
+        *(fk->data+row) += flux[d] * dt/(gv[1]-gv[0]) * PolyVal[k];
 
         //flux on the inner boundary
         PolyVal = Poly(lv[0]);
@@ -211,14 +217,13 @@ EVEC DGFEMSpace1D::NLF(const F FLUX, const SOL& sol, const SOL& soln, func sourc
             U1[d] = 0;
         }
         flux = LxF(FLUX, U1, U, alpha);
-        fk[row] -= flux[d] * dt/(gv[1]-gv[0]) * PolyVal[k];
+        *(fk->data+row) -= flux[d] * dt/(gv[1]-gv[0]) * PolyVal[k];
 
-        fk[row] -= tmp_u[k][d] * dt/(2*k+1);//(gv[1]-gv[0]);
-        //std::cout << "tmp:\n" << tmp_u << std::endl;
+        *(fk->data+row) -= tmp_u[k][d] * dt/(2*k+1);//source  term
       }
     }
   }
-  return fk;
+  return *fk;
 }
 
 /**
@@ -236,11 +241,13 @@ void DGFEMSpace1D::form_jacobian_rhs(const SOL& sol, const SOL& soln, const F FL
     const double t, const double dt, const double alpha) {
   int row, col;
   double val;
+  double * ptr;
   std::vector<double> pnt, wei;
   std::vector<double> x = TemQuad.points();
   std::vector<double> PolyVal, PGVal, LocPolyVal;
   std::vector<double> lv(2), gv(2);
   lv[0] = -1, lv[1] = 1;
+  gsl_spmatrix_set_zero(A);
   for(u_int i = 0; i < Nx; ++i) {//i-th cell
     //std::cout << "i: " << i << std::endl;
     pnt = QUADINFO[i].points();
@@ -253,8 +260,9 @@ void DGFEMSpace1D::form_jacobian_rhs(const SOL& sol, const SOL& soln, const F FL
         //time derivative: u_{i,d}^(k)
         col = row;
         val = 1./(2*k+1);
-        //List.push_back( T(row, col, val) );
-        gsl_spmatrix_set(A, row, col, val);
+        ptr = gsl_spmatrix_ptr(A, row, col);
+        if(ptr == NULL) gsl_spmatrix_set(A, row, col, val);
+        else *ptr += val;
 
         //element integral: u^(q)_{i,d}, q=0..K-1
         for(u_int q = 0; q < K; ++q) {//derivative of u^(q)_{i,m}
@@ -275,8 +283,10 @@ void DGFEMSpace1D::form_jacobian_rhs(const SOL& sol, const SOL& soln, const F FL
               val += pd * (PGVal[k]*QUADINFO[i].g2l_jacobian()) * wei[g];
             }
             val *= -dt/2;
-            //List.push_back( T(row, col, val) );
-            gsl_spmatrix_set(A, row, col, val);
+            //gsl_spmatrix_set(A, row, col, val);
+            ptr = gsl_spmatrix_ptr(A, row, col);
+            if(ptr == NULL) gsl_spmatrix_set(A, row, col, val);
+            else *ptr += val;
           }
         }
         //fLux on the outer boundary
@@ -291,7 +301,9 @@ void DGFEMSpace1D::form_jacobian_rhs(const SOL& sol, const SOL& soln, const F FL
             double pd = 0.5 * (AF[d][m]+alpha*kronecker(d,m)) * LocPolyVal[q];
             val = pd * dt/(gv[1]-gv[0]) * PolyVal[k];
             //List.push_back( T(row, col, val) );
-            gsl_spmatrix_set(A, row, col, val);
+            ptr = gsl_spmatrix_ptr(A, row, col);
+            if(ptr == NULL) gsl_spmatrix_set(A, row, col, val);
+            else *ptr += val;
 
             //(i+1)-th cell
             if(i < Nx-1) {
@@ -301,7 +313,9 @@ void DGFEMSpace1D::form_jacobian_rhs(const SOL& sol, const SOL& soln, const F FL
               pd = 0.5 * (AF[d][m]-alpha*kronecker(d,m)) * LocPolyVal[q];
               val = pd * dt/(gv[1]-gv[0]) * PolyVal[k];
               //List.push_back( T(row, col, val) );
-              gsl_spmatrix_set(A, row, col, val);
+              ptr = gsl_spmatrix_ptr(A, row, col);
+              if(ptr == NULL) gsl_spmatrix_set(A, row, col, val);
+              else *ptr += val;
             }
             else {//outflow right boundary
               LocPolyVal = Poly(lv[1]);
@@ -312,7 +326,9 @@ void DGFEMSpace1D::form_jacobian_rhs(const SOL& sol, const SOL& soln, const F FL
               pd = 0.5 * (AF[d][m]-alpha*kronecker(d,m)) * LocPolyVal[q];
               val = pd * dt/(gv[1]-gv[0]) * PolyVal[k];
               //List.push_back( T(row, col, val) );
-              gsl_spmatrix_set(A, row, col, val);
+              ptr = gsl_spmatrix_ptr(A, row, col);
+              if(ptr == NULL) gsl_spmatrix_set(A, row, col, val);
+              else *ptr += val;
             }
           }
         }
@@ -331,7 +347,9 @@ void DGFEMSpace1D::form_jacobian_rhs(const SOL& sol, const SOL& soln, const F FL
               pd = 0.5 * (AF[d][m]+alpha*kronecker(d,m)) * LocPolyVal[q];
               val = - pd * dt/(gv[1]-gv[0]) * PolyVal[k];
               //List.push_back( T(row, col, val) );
-              gsl_spmatrix_set(A, row, col, val);
+              ptr = gsl_spmatrix_ptr(A, row, col);
+              if(ptr == NULL) gsl_spmatrix_set(A, row, col, val);
+              else *ptr += val;
             }
             else {//zero left boundary
             }
@@ -343,43 +361,57 @@ void DGFEMSpace1D::form_jacobian_rhs(const SOL& sol, const SOL& soln, const F FL
             pd = 0.5 * (AF[d][m]-alpha*kronecker(d,m)) * LocPolyVal[q];
             val = - pd * dt/(gv[1]-gv[0]) * PolyVal[k];
             //List.push_back( T(row, col, val) );
-            gsl_spmatrix_set(A, row, col, val);
+            ptr = gsl_spmatrix_ptr(A, row, col);
+            if(ptr == NULL) gsl_spmatrix_set(A, row, col, val);
+            else *ptr += val;
           }
         }
 
       }
     }
   }
-  gsl_spmatrix_set_zero(A);
   //gsl_spmatrix_ccs(A);
   //RHS
-  rhs = -NLF(FLUX, sol, soln, source, alpha, t, dt);
+  *rhs = NLF(FLUX, sol, soln, source, alpha, t, dt);
+  gsl_vector_scale(rhs, -1);
 
 }
 
-void DGFEMSpace1D::solve_leqn(MAT& A, const EVEC& rhs, EVEC& u) {
-  //std::cout << "======solve_leqn by iterative solver======" << std::endl;
-  //solver.setMaxIterations(vec_u1.size());
-  //solver.setTolerance(1e-15);
-  //solver.compute(A);
-  //u = solver.solve(rhs);
-  //std::cout << "iterations:     " << solver.iterations() << std::endl;
-  //std::cout << "estimated error: " << solver.error()      << std::endl;
-  //std::cout << "======================" << std::endl;
+void DGFEMSpace1D::solve_leqn(MAT *A, const EVEC *rhs, EVEC *u) {
+  std::cout << "======solve_leqn by GSL GMRES======" << std::endl;
+  const gsl_splinalg_itersolve_type *T = gsl_splinalg_itersolve_gmres;
+  gsl_splinalg_itersolve *work =
+    gsl_splinalg_itersolve_alloc(T, Nx*K*DIM, 0);
+  size_t iter = 0;
+  double residual, tol(1e-14);
+  int status;
+  /* initial guess u = 0 */
+  gsl_vector_set_zero(u);
+  /* solve the system A u = f */
+  do
+  {
+    status = gsl_splinalg_itersolve_iterate(A, rhs, tol, u, work);
+    /* print out residual norm ||A*u - f|| */
+    residual = gsl_splinalg_itersolve_normr(work);
+    //fprintf(stdout, "iter %zu residual = %.12e\n", iter++, residual);
 
-  std::cout << "======solve_leqn by SuperLU======" << std::endl;
-  solver.analyzePattern(A);
-  solver.factorize(A);
-  u = solver.solve(rhs);
-  std::cout << "=================================" << std::endl;
+    if (status == GSL_SUCCESS)
+      fprintf(stdout, "Converged, residual%.6e\n", residual);
+  }
+  while (status == GSL_CONTINUE);
+  std::cout << "===================================" << std::endl;
+}
+
+VEC<double> exact0(const VEC<double>& u, double x, double t) {
+  VEC<double> U(DIM);
+  U[0] = (sin(4*x)-8*sin(2*x)+12*x)/32;
+  return U;
 }
 
 void DGFEMSpace1D::run(F FLUX, afunc g, func source, double t_end) {
   int ite(0), pp(1);
   double t(0), dt(0), dtt(0);
-  VEC<double> err(DIM,1), tol(DIM,1e-12);
-  //tol[0] = 1e-12; tol[1] = 1e-12; tol[2] = 1e-12;
-  //err[0] = 1; err[1] = 1; err[2] = 1;
+  VEC<double> err(DIM,1), tol(DIM,TOL);
   while ( err > tol ) {//|| pp == 0 ) {
     dt = cal_dt();
     forward_one_step(sol, FLUX, g, source, t, dt, &dtt, sol1);
@@ -397,6 +429,26 @@ void DGFEMSpace1D::run(F FLUX, afunc g, func source, double t_end) {
     std::cout << "ite: " << ite << ", dt: " << dt << ", t: " << t << ", err: ";
     std::cout << err << std::endl;
   }
+  //use exact solution to form the lneq
+  //SOL tmp1, tmp2;
+  //for(u_int i = 0; i < Nx; ++i) {
+    //tmp1.resize(Nx); tmp2.resize(Nx);
+    //for(u_int k = 0; k < K; ++k) {
+      //tmp1[i].resize(K); tmp2[i].resize(K);
+      //for(u_int d = 0; d < DIM; ++d) {
+        //tmp1[i][k].resize(DIM);
+        //tmp2[i][k].resize(DIM);
+      //}
+    //}
+  //}
+  //for(u_int i = 0; i < Nx; ++i) {
+    //Projection(i, exact0, 0, tmp1[i]);
+    //tmp1[i] = tmp2[i];
+  //}
+  //form_jacobian_rhs(tmp1, tmp2, FLUX, g, source, t, dt, 1);
+  //gsl_vector * tmp3 = gsl_vector_alloc(Nx*K*DIM);
+  //*rhs = NLF(FLUX, tmp1, sol, source, 1, t, dt);
+  //gsl_vector_fprintf(stdout, tmp3, "%.15e");
 }
 
 int DGFEMSpace1D::judge_positivity(const SOL& sol) {
@@ -415,21 +467,21 @@ int DGFEMSpace1D::judge_positivity(const SOL& sol) {
   return 1;
 }
 
-void DGFEMSpace1D::SOL2EVEC(const SOL& sol, EVEC& vec_u) {
+void DGFEMSpace1D::SOL2EVEC(const SOL& sol, EVEC *vec_u) {
   for(u_int i = 0; i < Nx; ++i) {
     for(u_int k = 0; k < K; ++k) {
       for(u_int d = 0; d < DIM; ++d) {
-        vec_u[i*(K*DIM)+k*DIM+d] = sol[i][k][d];
+        gsl_vector_set(vec_u, i*(K*DIM)+k*DIM+d, sol[i][k][d]);
       }
     }
   }
 }
 
-void DGFEMSpace1D::EVEC2SOL(SOL& sol, const EVEC& vec_u) {
+void DGFEMSpace1D::EVEC2SOL(SOL& sol, const EVEC *vec_u) {
   for(u_int i = 0; i < Nx; ++i) {
     for(u_int k = 0; k < K; ++k) {
       for(u_int d = 0; d < DIM; ++d) {
-        sol[i][k][d] = vec_u[i*(K*DIM)+k*DIM+d];
+        sol[i][k][d] = gsl_vector_get(vec_u, i*(K*DIM)+k*DIM+d);
       }
     }
   }
@@ -458,7 +510,7 @@ VEC<double> DGFEMSpace1D::cal_norm(const SOL& s1, const SOL& s2, int n) {
 }
 
 void DGFEMSpace1D::print_solution(std::ostream& os) {
-	os.precision(8);
+	os.precision(16);
 	os << std::showpos;
   os.setf(std::ios::scientific);
   std::vector<double> x = TemQuad.points();
@@ -475,7 +527,4 @@ void DGFEMSpace1D::print_solution(std::ostream& os) {
   //os.setf(std::ios::floatfield);
 }
 
-MAT DGFEMSpace1D::get_A() const {
-  return A;
-}
 

@@ -38,17 +38,18 @@ class DGFEMSpace1D {
     u_int Nx;
     double xl, xr;
     double h;
+    double Nt_tol, Nt_Ftol, TOL;
     VEC<double> mesh;
     TemplateQuadrature TemQuad;
     std::vector<Quadrature> QUADINFO;
     SOL sol, sol1;
     BM bml, bmr;
-    MAT * A;
+    MAT *A;
     EVEC *rhs, *vec_u1, *vec_u2;
     gsl_splinalg_itersolve_type * solver;
 
   public:
-    DGFEMSpace1D(u_int Nx, double xl, double xr);
+    DGFEMSpace1D(u_int Nx, double xl, double xr, double, double, double);
     void BuildQuad(u_int np);
     void Projection(u_int cell, func f0, double t, bU&);
     VEC<double> Composition(const SOL&, u_int cell, double x, double t);
@@ -83,14 +84,13 @@ class DGFEMSpace1D {
         const double alpha, const double t, const double dt);
     void form_jacobian_rhs(const SOL& sol, const SOL& soln, const F, afunc, func,
         const double, const double, const double);
-    void solve_leqn(MAT& A, const EVEC& rhs, EVEC&);
+    void solve_leqn(MAT*, const EVEC*, EVEC*);
     void run(F, afunc, func, double t_end);
     int judge_positivity(const SOL&);
-    void SOL2EVEC(const SOL&, EVEC&);
-    void EVEC2SOL(SOL&, const EVEC&);
+    void SOL2EVEC(const SOL&, EVEC*);
+    void EVEC2SOL(SOL&, const EVEC*);
     VEC<double> cal_norm(const SOL&, const SOL&, int);
     void print_solution(std::ostream&);
-    MAT get_A() const;
 };
 
 #endif //DGFEMSPACE1D_H
