@@ -8,8 +8,9 @@
 
 #include "DGFEMSpace1D.h"
 
-DGFEMSpace1D::DGFEMSpace1D(u_int Nx, double xl, double xr)
-  : Nx(Nx), xl(xl), xr(xr) {
+DGFEMSpace1D::DGFEMSpace1D(u_int Nx, double xl, double xr,
+    double Nt_tol, double Nt_Ftol, double TOL)
+  : Nx(Nx), xl(xl), xr(xr), Nt_tol(Nt_tol), Nt_Ftol(Nt_Ftol), TOL(TOL) {
   mesh.resize(Nx+1);
   h = (xr - xl)/Nx;
   for(u_int i = 0; i < Nx+1; ++i) {
@@ -52,10 +53,6 @@ void DGFEMSpace1D::BuildQuad(u_int np) {
     QUADINFO[i].set_jacobi( local_to_global_jacobian(lv, gv),
         global_to_local_jacobian(lv, gv) );
   }
-  //for(u_int i = 0; i < Nx; ++i) {
-    //std::cout << i << "-th cell QUADINFO" << "\n";
-    //QUADINFO[i].print(std::cout);
-  //}
 }
 
 void DGFEMSpace1D::Projection(u_int cell, func f0, double t, bU& u) {
@@ -126,7 +123,7 @@ VEC<double> DGFEMSpace1D::LxF(const F FLUX, const VEC<double>& a, const VEC<doub
 void DGFEMSpace1D::Newton_iter(const SOL& sol, const F FLUX, const afunc g, func source,
     const double t, const double dt, const double alpha, SOL& sol_new) {
   int Nt_ite(0);
-  double Nt_err(1), Fval_norm(1), Nt_tol(1e-14), Nt_Ftol(1e-14);
+  double Nt_err(1), Fval_norm(1);
   sol_new = sol;
   SOL2EVEC(sol_new, vec_u1);
   while (Nt_err > Nt_tol && Fval_norm > Nt_Ftol) {
@@ -217,7 +214,7 @@ EVEC DGFEMSpace1D::NLF(const F FLUX, const SOL& sol, const SOL& soln, func sourc
         flux = LxF(FLUX, U1, U, alpha);
         fk[row] -= flux[d] * dt/(gv[1]-gv[0]) * PolyVal[k];
 
-        fk[row] -= tmp_u[k][d] * dt/(2*k+1);//(gv[1]-gv[0]);
+        fk[row] -= tmp_u[k][d] * dt/(2*k+1);
         //std::cout << "tmp:\n" << tmp_u << std::endl;
       }
     }
@@ -376,9 +373,7 @@ void DGFEMSpace1D::solve_leqn(MAT& A, const EVEC& rhs, EVEC& u) {
 void DGFEMSpace1D::run(F FLUX, afunc g, func source, double t_end) {
   int ite(0), pp(1);
   double t(0), dt(0), dtt(0);
-  VEC<double> err(DIM,1), tol(DIM,1e-15);
-  //tol[0] = 1e-12; tol[1] = 1e-12; tol[2] = 1e-12;
-  //err[0] = 1; err[1] = 1; err[2] = 1;
+  VEC<double> err(DIM,1), tol(DIM,TOL);
   while ( err > tol ) {//|| pp == 0 ) {
     dt = cal_dt();
     forward_one_step(sol, FLUX, g, source, t, dt, &dtt, sol1);
@@ -435,18 +430,33 @@ void DGFEMSpace1D::EVEC2SOL(SOL& sol, const EVEC& vec_u) {
 }
 
 VEC<double> DGFEMSpace1D::cal_norm(const SOL& s1, const SOL& s2, int n) {
-  VEC<double> norm(DIM), tmp;
-  double center;
+  VEC<double> norm(DIM), tmp(DIM);
   if(n == 2) {
     for(u_int i = 0; i < Nx; ++i) {
-      center = 0.5*(mesh[i]+mesh[i+1]);
-      tmp = Composition(s1,i,center,0)-Composition(s2,i,center,0);
-      for(u_int d = 0; d < DIM; ++d) {
-        norm[d] += pow(tmp[d], 2);
+      std::vector<double> w = QUADINFO[i].weight();
+      std::vector<double> p = QUADINFO[i].points();
+      for(u_int g = 0; g < p.size(); ++g) {
+        tmp = (Composition(s1,i,p[g],0) - Composition(s2,i,p[g],0));
+        for(u_int d = 0; d < DIM; ++d) {
+          norm[d] += pow(tmp[d], 2) * w[g] * h;
+        }
       }
     }
     for(u_int d = 0; d < DIM; ++d) {
-      norm[d] = sqrt(norm[d]*h);
+      norm[d] = sqrt(norm[d]);
+    }
+    return norm;
+  }
+  else if(n == 1) {
+   for(u_int i = 0; i < Nx; ++i) {
+      std::vector<double> w = QUADINFO[i].weight();
+      std::vector<double> p = QUADINFO[i].points();
+      for(u_int g = 0; g < p.size(); ++g) {
+        tmp = (Composition(s1,i,p[g],0) - Composition(s2,i,p[g],0));
+        for(u_int d = 0; d < DIM; ++d) {
+          norm[d] += fabs(tmp[d]) * w[g] * h;
+        }
+      }
     }
     return norm;
   }

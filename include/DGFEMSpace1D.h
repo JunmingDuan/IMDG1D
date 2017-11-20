@@ -29,6 +29,7 @@ typedef Eigen::Triplet<double> T;
 typedef Eigen::SparseMatrix<double, Eigen::RowMajor> MAT;
 typedef Eigen::VectorXd EVEC;
 
+extern double Nt_tol, Nt_Ftol, TOL;
 /**
  * @brief dimension of the equation, 1 for scalar equation and 3 for Euler equations
  */
@@ -39,6 +40,7 @@ class DGFEMSpace1D {
     u_int Nx;
     double xl, xr;
     double h;
+    double Nt_tol, Nt_Ftol, TOL;
     VEC<double> mesh;
     TemplateQuadrature TemQuad;
     std::vector<Quadrature> QUADINFO;
@@ -58,7 +60,7 @@ class DGFEMSpace1D {
     //Eigen::GMRES<MAT, Eigen::DiagonalPreconditioner<double>> solver;
 
   public:
-    DGFEMSpace1D(u_int Nx, double xl, double xr);
+    DGFEMSpace1D(u_int Nx, double xl, double xr, double Nt_tol, double Nt_Ftol, double TOL);
     void BuildQuad(u_int np);
     void Projection(u_int cell, func f0, double t, bU&);
     VEC<double> Composition(const SOL&, u_int cell, double x, double t);

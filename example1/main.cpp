@@ -53,7 +53,7 @@ VEC<double> exact(const double x, const double t) {
 }
 
 int main(int argc, char *argv[]) {
-  if(argc < 5) {
+  if(argc != 5) {
     std::cout << "Usage: <Nx> <xl> <xr> <t_end> " << std::endl;
     abort();
   }
@@ -63,10 +63,11 @@ int main(int argc, char *argv[]) {
   double xl = atof(argv[2]);
   double xr = atof(argv[3]);
   double t_end = atof(argv[4]);
+  double Nt_tol(1e-13), Nt_Ftol(1e-13), TOL(1e-12);
   std::cout << "Set up problem..." << std::endl;
-  DGFEMSpace1D Problem(Nx, xl, xr);
+  DGFEMSpace1D Problem(Nx, xl, xr, Nt_tol, Nt_Ftol, TOL);
   std::cout << "Build quadrature info..." << std::endl;
-  Problem.BuildQuad(6);
+  Problem.BuildQuad(K+1);
   std::cout << "Initialize..." << std::endl;
   Problem.init(f0);
   std::cout << "Start to solve..." << std::endl;
