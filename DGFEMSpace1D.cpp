@@ -106,9 +106,24 @@ double DGFEMSpace1D::cal_dt() {
   return 10*h;
 }
 
+double DGFEMSpace1D::cal_characteristic_speed(const SOL& sol, afunc g) {
+  double center(0), a(0);
+  VEC<VEC<double>> tmp(DIM,DIM);
+  std::cout << "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n" << tmp[0].size() << std::endl;
+  for(u_int i = 0; i < Nx; ++i) {
+    center = 0.5*(mesh[i]+mesh[i+1]);
+    if(DIM == 1) {
+      tmp = g(Composition(sol,i,center,0));
+      if(tmp[0][0] > a) a = tmp[0][0];
+    }
+  }
+  return a;
+}
+
 int DGFEMSpace1D::forward_one_step(const SOL& sol, const F FLUX, afunc g, func source,
     double t, double dt, double* dtt, SOL& sol_new) {
-  double alpha = 1;
+  double alpha = cal_characteristic_speed(sol, g);
+  std::cout << "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n" << alpha << std::endl;
   Newton_iter(sol, FLUX, g, source, t, dt, alpha, sol_new);
   //std::cout << sol_new << std::endl;
   return 0;

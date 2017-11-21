@@ -55,6 +55,7 @@ class DGFEMSpace1D {
     VEC<double> Composition(const SOL&, u_int cell, double x, double t);
     void init(func f0);
     double cal_dt();
+    double cal_characteristic_speed(const SOL&, afunc);
     /**
      * @brief forward_one_step
      *
@@ -90,6 +91,7 @@ class DGFEMSpace1D {
     void SOL2EVEC(const SOL&, EVEC*);
     void EVEC2SOL(SOL&, const EVEC*);
     VEC<double> cal_norm(const SOL&, const SOL&, int);
+    VEC<double> cal_err(const SOL& s1, int n);
     void print_solution(std::ostream&);
 };
 

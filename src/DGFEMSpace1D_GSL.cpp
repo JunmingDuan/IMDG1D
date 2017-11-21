@@ -105,14 +105,26 @@ void DGFEMSpace1D::init(func f0) {
 }
 
 double DGFEMSpace1D::cal_dt() {
-  return h;
+  return 10*h;
+}
+
+double DGFEMSpace1D::cal_characteristic_speed(const SOL& sol, afunc g) {
+  double center(0), a(0);
+  VEC<VEC<double>> tmp;
+  for(u_int i = 0; i < Nx; ++i) {
+    center = 0.5*(mesh[i]+mesh[i+1]);
+    tmp = g(Composition(sol,i,center,0));
+    if(DIM == 1) {
+      if(fabs(tmp[0][0]) > a) a = fabs(tmp[0][0]);
+    }
+  }
+  return a;
 }
 
 int DGFEMSpace1D::forward_one_step(const SOL& sol, const F FLUX, afunc g, func source,
     double t, double dt, double* dtt, SOL& sol_new) {
-  double alpha = 1;
+  double alpha = cal_characteristic_speed(sol, g);
   Newton_iter(sol, FLUX, g, source, t, dt, alpha, sol_new);
-  //std::cout << sol_new << std::endl;
   return 0;
 }
 
@@ -382,7 +394,7 @@ void DGFEMSpace1D::solve_leqn(MAT *A, const EVEC *rhs, EVEC *u) {
   const gsl_splinalg_itersolve_type *T = gsl_splinalg_itersolve_gmres;
   gsl_splinalg_itersolve *work =
     gsl_splinalg_itersolve_alloc(T, Nx*K*DIM, 0);
-  size_t iter = 0;
+  int iter = 0;
   double residual, tol(1e-14);
   int status;
   /* initial guess u = 0 */
@@ -396,7 +408,7 @@ void DGFEMSpace1D::solve_leqn(MAT *A, const EVEC *rhs, EVEC *u) {
     //fprintf(stdout, "iter %zu residual = %.12e\n", iter++, residual);
 
     if (status == GSL_SUCCESS)
-      fprintf(stdout, "Converged, residual%.6e\n", residual);
+      fprintf(stdout, "Converged, iter %d, residual %.6e\n", ++iter, residual);
   }
   while (status == GSL_CONTINUE);
   std::cout << "===================================" << std::endl;
@@ -429,6 +441,7 @@ void DGFEMSpace1D::run(F FLUX, afunc g, func source, double t_end) {
     std::cout << "ite: " << ite << ", dt: " << dt << ", t: " << t << ", err: ";
     std::cout << err << std::endl;
   }
+  std::cout << "err2,1,inf: " << cal_err(sol,2)  << " " << cal_err(sol,1) << " " << cal_err(sol,0) << std::endl;
   //use exact solution to form the lneq
   //SOL tmp1, tmp2;
   //for(u_int i = 0; i < Nx; ++i) {
@@ -488,20 +501,87 @@ void DGFEMSpace1D::EVEC2SOL(SOL& sol, const EVEC *vec_u) {
 }
 
 VEC<double> DGFEMSpace1D::cal_norm(const SOL& s1, const SOL& s2, int n) {
-  VEC<double> norm(DIM), tmp;
+  VEC<double> norm(DIM), tmp1, tmp2;
   double center;
   if(n == 2) {
     for(u_int i = 0; i < Nx; ++i) {
-      center = 0.5*(mesh[i]+mesh[i+1]);
-      tmp = Composition(s1,i,center,0)-Composition(s2,i,center,0);
-      for(u_int d = 0; d < DIM; ++d) {
-        norm[d] += pow(tmp[d], 2);
+      std::vector<double> p = QUADINFO[i].points();
+      std::vector<double> w = QUADINFO[i].weight();
+      for(u_int g = 0; g < p.size(); ++g) {
+        tmp1 = Composition(s1,i,p[g],0);
+        tmp2 = Composition(s2,i,p[g],0);
+        for(u_int d = 0; d < DIM; ++d) {
+          norm[d] += pow(tmp1[d]-tmp2[d], 2) * w[g];
+        }
       }
     }
     for(u_int d = 0; d < DIM; ++d) {
-      norm[d] = sqrt(norm[d]*h);
+      norm[d] = sqrt(norm[d]*h/2);
     }
     return norm;
+  }
+  else {
+    std::cout << "Wrong norm choice!" << std::endl;
+    return norm;
+  }
+}
+
+VEC<double> exact1(const double x, const double t) {
+  VEC<double> U(DIM);
+  U[0] = sqrt(8-8*cos(x/4.));
+  return U;
+}
+
+VEC<double> DGFEMSpace1D::cal_err(const SOL& s1, int n) {
+  VEC<double> norm(DIM,0), tmp1, tmp2;
+  if(n == 2) {
+    for(u_int i = 0; i < Nx; ++i) {
+      std::vector<double> p = QUADINFO[i].points();
+      std::vector<double> w = QUADINFO[i].weight();
+      for(u_int g = 0; g < p.size(); ++g) {
+        tmp1 = Composition(s1,i,p[g],0);
+        tmp2 = exact1(p[g],0);
+        for(u_int d = 0; d < DIM; ++d) {
+          norm[d] += pow(tmp1[d]-tmp2[d], 2) * w[g];
+        }
+      }
+    }
+    for(u_int d = 0; d < DIM; ++d) {
+      norm[d] = sqrt(norm[d]*h/2);
+    }
+    return norm;
+  }
+  else if(n == 1) {
+    for(u_int i = 0; i < Nx; ++i) {
+      std::vector<double> p = QUADINFO[i].points();
+      std::vector<double> w = QUADINFO[i].weight();
+      for(u_int g = 0; g < p.size(); ++g) {
+        tmp1 = Composition(s1,i,p[g],0);
+        tmp2 = exact1(p[g],0);
+        for(u_int d = 0; d < DIM; ++d) {
+          norm[d] += fabs(tmp1[d]-tmp2[d]) * w[g];
+        }
+      }
+    }
+    for(u_int d = 0; d < DIM; ++d) {
+      norm[d] = (norm[d]*h/2);
+    }
+    return norm;
+  }
+  else if(n == 0) {
+    for(u_int i = 0; i < Nx; ++i) {
+      std::vector<double> p = QUADINFO[i].points();
+      std::vector<double> w = QUADINFO[i].weight();
+      for(u_int g = 0; g < p.size(); ++g) {
+        tmp1 = Composition(s1,i,p[g],0);
+        tmp2 = exact1(p[g],0);
+        for(u_int d = 0; d < DIM; ++d) {
+          if( fabs(tmp1[d]-tmp2[d]) > norm[d] ) norm[d] = fabs(tmp1[d]-tmp2[d]);
+        }
+      }
+    }
+    return norm;
+
   }
   else {
     std::cout << "Wrong norm choice!" << std::endl;

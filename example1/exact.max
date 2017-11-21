@@ -1,1 +1,2 @@
-ratsimp(integrate(sin(x)^4, x));
+/*ratsimp(integrate(sin(x)^4, x));*/
+(sqrt(2*integrate(sin(x/4), x)));

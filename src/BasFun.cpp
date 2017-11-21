@@ -1,6 +1,6 @@
 #include "BasFun.h"
 
-u_int K = 1;
+u_int K = 5;
 
 std::vector<double> Poly(double x) {
   std::vector<double> poly(K);
