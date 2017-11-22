@@ -1,6 +1,7 @@
 function plot_ex2(K, n);
 % para: n, P_n polynomial;
 
+addpath('../src/')
 format long ;
 f = @(x) sqrt(8-8*cos(x/4.));
 exact = load('ex2_exact.dat');
@@ -77,21 +78,21 @@ case 0;
   y4, '^');%, x5, y5, 'v');
   %cal_order
   nx = 20; h = 1/nx;
-  err(1,1) = cal_norm(ex1-y1, numer1(:,2), h, 2);
-  err(1,2) = cal_norm(ex1-y1, numer1(:,2), h, 1);
-  err(1,3) = cal_norm(ex1-y1, numer1(:,2), h, 'inf');
+  err(1,1) = cal_rel_norm(y1, ex1, numer1(:,2), h, 2);
+  err(1,2) = cal_rel_norm(y1, ex1, numer1(:,2), h, 1);
+  err(1,3) = cal_rel_norm(y1, ex1, numer1(:,2), h, 'inf');
   nx = 40; h = 1/nx;
-  err(2,1) = cal_norm(ex2-y2, numer2(:,2), h, 2);
-  err(2,2) = cal_norm(ex2-y2, numer2(:,2), h, 1);
-  err(2,3) = cal_norm(ex2-y2, numer2(:,2), h, 'inf');
+  err(2,1) = cal_rel_norm(y2, ex2, numer2(:,2), h, 2);
+  err(2,2) = cal_rel_norm(y2, ex2, numer2(:,2), h, 1);
+  err(2,3) = cal_rel_norm(y2, ex2, numer2(:,2), h, 'inf');
   nx = 80; h = 1/nx;
-  err(3,1) = cal_norm(ex3-y3, numer3(:,2), h, 2);
-  err(3,2) = cal_norm(ex3-y3, numer3(:,2), h, 1);
-  err(3,3) = cal_norm(ex3-y3, numer3(:,2), h, 'inf');
+  err(3,1) = cal_rel_norm(y3, ex3, numer3(:,2), h, 2);
+  err(3,2) = cal_rel_norm(y3, ex3, numer3(:,2), h, 1);
+  err(3,3) = cal_rel_norm(y3, ex3, numer3(:,2), h, 'inf');
   nx = 160; h = 1/nx;
-  err(4,1) = cal_norm(ex4-y4, numer4(:,2), h, 2);
-  err(4,2) = cal_norm(ex4-y4, numer4(:,2), h, 1);
-  err(4,3) = cal_norm(ex4-y4, numer4(:,2), h, 'inf');
+  err(4,1) = cal_rel_norm(y4, ex4, numer4(:,2), h, 2);
+  err(4,2) = cal_rel_norm(y4, ex4, numer4(:,2), h, 1);
+  err(4,3) = cal_rel_norm(y4, ex4, numer4(:,2), h, 'inf');
   %nx = 320; h = 1/nx;
   %err(5,1) = cal_norm(ex5-y5, numer5(:,2), h, 2);
   %err(5,2) = cal_norm(ex5-y5, numer5(:,2), h, 1);
@@ -115,6 +116,7 @@ case 0;
     fprintf('%.3e\n', min_y(n));
   end
   %diary off;
+  plot(x3, abs(ex3-y3));
 
 otherwise
   disp('Wrong choice of plot');
