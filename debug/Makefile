@@ -14,13 +14,13 @@
 EXECUTABLE := main    # 可执行文件名
 LIBDIR:=              # 静态库目录
 LIBS :=               # 静态库文件名
-INCLUDES:=../include/ /home/jimmy/eigen          # 头文件目录
-SRCDIR:=../src/              # 除了当前目录外，其他的源代码文件目录
+INCLUDES:=../include /home/jimmy/eigen          # 头文件目录
+SRCDIR:=../src              # 除了当前目录外，其他的源代码文件目录
 #
 # # Now alter any implicit rules' variables if you like, e.g.:
 
 CC:=g++
-CFLAGS := -g -Wall -O3 -fopenmp -std=c++11
+CFLAGS := -g -Wall -O3 -fopenmp -std=c++11 -lgsl -lgslcblas
 CPPFLAGS := $(CFLAGS)
 CPPFLAGS += $(addprefix -I,$(INCLUDES))
 CPPFLAGS += -MMD
@@ -53,8 +53,8 @@ deps : $(DEPS)
 objs : $(OBJS)
 
 clean :
-	@$(RM-F) *.o
-	@$(RM-F) *.d
+	@$(RM-F) $(OBJS)
+	@$(RM-F) $(DEPS)
 veryclean: clean
 	@$(RM-F) $(EXECUTABLE)
 

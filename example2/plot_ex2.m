@@ -1,6 +1,7 @@
 function plot_ex2(K, n);
 % para: n, P_n polynomial;
 
+addpath('../src/');
 format long ;
 f = @(x) sqrt(8-8*cos(x/4.));
 exact = load('ex2_exact.dat');

@@ -18,6 +18,8 @@
 #include "gsl/gsl_splinalg.h"
 
 #define VEC vvector
+#define BD 1//0 for ghost = 0. 1 for flux = 0
+
 typedef VEC<VEC<double> > bU;
 typedef VEC<bU> SOL;
 typedef int BM;
@@ -93,6 +95,7 @@ class DGFEMSpace1D {
     VEC<double> cal_norm(const SOL&, const SOL&, int);
     VEC<double> cal_err(const SOL& s1, int n);
     void print_solution(std::ostream&);
+    MAT get_A();
 };
 
 #endif //DGFEMSPACE1D_H

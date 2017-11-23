@@ -16,24 +16,18 @@
 VEC<double> f0(const VEC<double>& u, double x, double t) {
   VEC<double> U(DIM);
   U[0] = x;
-  //u[1] = 2*x;//pow(sin(x), 2);
-  //u[2] = 3*x;//pow(sin(x), 2);
   return U;
 }
 
 VEC<double> f(const VEC<double>& u) {
   VEC<double> F(DIM);
   F[0] = 0.5*pow(u[0],2);
-  //F[1] = 2*u[1];
-  //F[2] = 3*u[2];
   return F;
 }
 
 VEC<double> source(const VEC<double>& u, double x, double t) {
   VEC<double> F(DIM);
   F[0] = sin(x/4.);
-  //F[1] = 2*u[1];
-  //F[2] = 3*u[2];
   return F;
 }
 
@@ -42,8 +36,6 @@ VEC<VEC<double> > f_prime(const VEC<double>& u) {
   for(u_int i = 0; i < DIM; ++i)
     a[i].resize(DIM, 0);
   a[0][0] = u[0];
-  //a[1][1] = 2;
-  //a[2][2] = 3;
   return a;
 }
 
@@ -64,7 +56,7 @@ int main(int argc, char *argv[]) {
   double xl = atof(argv[2]);
   double xr = atof(argv[3]);
   double t_end = atof(argv[4]);
-  double Nt_tol(1e-14), Nt_Ftol(1e-14), TOL(1e-15);
+  double Nt_tol(1e-13), Nt_Ftol(1e-13), TOL(6e-16);
   std::cout << "Set up problem..." << std::endl;
   DGFEMSpace1D Problem(Nx, xl, xr, Nt_tol, Nt_Ftol, TOL);
   std::cout << "Build quadrature info..." << std::endl;
