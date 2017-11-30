@@ -8,20 +8,16 @@
 
 #ifndef DGFEMSPACE1D_H
 #define DGFEMSPACE1D_H
-#include "vvector.h"
-#include "BasFun.h"
-#include "Quadrature.h"
-#include "interval_crd_trs.h"
 #include "gsl/gsl_math.h"
 #include "gsl/gsl_vector.h"
 #include "gsl/gsl_spmatrix.h"
+#include "gsl/gsl_linalg.h"
 #include "gsl/gsl_splinalg.h"
+#include "BasFun.h"
+#include "Quadrature.h"
+#include "interval_crd_trs.h"
+#include "scaling_limiter.h"
 
-#define VEC vvector
-#define BD 1//0 for ghost = 0. 1 for flux = 0
-
-typedef VEC<VEC<double> > bU;
-typedef VEC<bU> SOL;
 typedef int BM;
 typedef std::vector<std::vector<double> > QUAD;
 typedef VEC<double> (*func)(const VEC<double>&,double,double);
@@ -30,33 +26,33 @@ typedef VEC<double> (*F)(const VEC<double>&);
 typedef gsl_spmatrix MAT;
 typedef gsl_vector EVEC;
 
-/**
- * @brief dimension of the equation, 1 for scalar equation and 3 for Euler equations
- */
-const u_int DIM = 1;
-
 class DGFEMSpace1D {
   private:
     u_int Nx;
     double xl, xr;
     double h;
-    double Nt_tol, Nt_Ftol, TOL;
     VEC<double> mesh;
     TemplateQuadrature TemQuad;
     std::vector<Quadrature> QUADINFO;
-    SOL sol, sol1;
+    SOL sol, sol1;//dimension: Nx*K*DIM
+    VEC<VEC<double>> cell_average;//dimension: Nx*DIM
+    VEC<VEC<VEC<double>>> cell_val;//dimension: Nx*G*DIM
     BM bml, bmr;
     MAT *A;
+    gsl_matrix *B;
     EVEC *rhs, *vec_u1, *vec_u2;
-    gsl_splinalg_itersolve_type * solver;
+    //gsl_splinalg_itersolve_type * solver;
+    //gsl_permutation * p_full_solver;
+    //gsl_linalg_LU_solve * full_solver;
 
   public:
-    DGFEMSpace1D(u_int Nx, double xl, double xr, double, double, double);
+    DGFEMSpace1D(u_int Nx, double xl, double xr);
     void BuildQuad(u_int np);
     void Projection(u_int cell, func f0, double t, bU&);
     VEC<double> Composition(const SOL&, u_int cell, double x, double t);
+    void Pk2val(const SOL&, VEC<VEC<VEC<double>>>&);
     void init(func f0);
-    double cal_dt();
+    double cal_dt(const SOL&, afunc);
     double cal_characteristic_speed(const SOL&, afunc);
     /**
      * @brief forward_one_step
@@ -88,7 +84,8 @@ class DGFEMSpace1D {
     void form_jacobian_rhs(const SOL& sol, const SOL& soln, const F, afunc, func,
         const double, const double, const double);
     void solve_leqn(MAT*, const EVEC*, EVEC*);
-    void run(F, afunc, func, double t_end);
+    void run_steady(F, afunc, func);
+    void run_unsteady(F, afunc, func, double t_end);
     int judge_positivity(const SOL&);
     void SOL2EVEC(const SOL&, EVEC*);
     void EVEC2SOL(SOL&, const EVEC*);

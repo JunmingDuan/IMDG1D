@@ -109,7 +109,6 @@ double DGFEMSpace1D::cal_dt() {
 double DGFEMSpace1D::cal_characteristic_speed(const SOL& sol, afunc g) {
   double center(0), a(0);
   VEC<VEC<double>> tmp(DIM,DIM);
-  std::cout << "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n" << tmp[0].size() << std::endl;
   for(u_int i = 0; i < Nx; ++i) {
     center = 0.5*(mesh[i]+mesh[i+1]);
     if(DIM == 1) {
@@ -123,7 +122,6 @@ double DGFEMSpace1D::cal_characteristic_speed(const SOL& sol, afunc g) {
 int DGFEMSpace1D::forward_one_step(const SOL& sol, const F FLUX, afunc g, func source,
     double t, double dt, double* dtt, SOL& sol_new) {
   double alpha = cal_characteristic_speed(sol, g);
-  std::cout << "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n" << alpha << std::endl;
   Newton_iter(sol, FLUX, g, source, t, dt, alpha, sol_new);
   //std::cout << sol_new << std::endl;
   return 0;
@@ -145,18 +143,18 @@ void DGFEMSpace1D::Newton_iter(const SOL& sol, const F FLUX, const afunc g, func
     form_jacobian_rhs(sol_new, sol, FLUX, g, source, t, dt, alpha);
     solve_leqn(A, rhs, vec_u2);
     Nt_err = vec_u2.norm();
-    std::cout << "=====sol^n,A,rhs,sol^{n+1}=====" << std::endl;
-    std::cout << "vec_u1:" << std::endl;
-    std::cout << vec_u1 << std::endl;
-    std::cout << "A:" << std::endl;
-    std::cout << A << std::endl;
-    std::cout << "rhs:" << std::endl;
-    std::cout << rhs << std::endl;
-    std::cout << "rhs_norm:" << std::endl;
-    std::cout << rhs.norm() << std::endl;
+    //std::cout << "=====sol^n,A,rhs,sol^{n+1}=====" << std::endl;
+    //std::cout << "vec_u1:" << std::endl;
+    //std::cout << vec_u1 << std::endl;
+    //std::cout << "A:" << std::endl;
+    //std::cout << A << std::endl;
+    //std::cout << "rhs:" << std::endl;
+    //std::cout << rhs << std::endl;
+    //std::cout << "rhs_norm:" << std::endl;
+    //std::cout << rhs.norm() << std::endl;
     vec_u1 += vec_u2;
-    std::cout << "vec_u1:" << std::endl;
-    std::cout << vec_u1 << std::endl;
+    //std::cout << "vec_u1:" << std::endl;
+    //std::cout << vec_u1 << std::endl;
     EVEC2SOL(sol_new, vec_u1);
     Fval_norm = NLF(FLUX, sol_new, sol, source, alpha, t, dt).norm();
     Nt_ite++;
@@ -365,7 +363,7 @@ void DGFEMSpace1D::form_jacobian_rhs(const SOL& sol, const SOL& soln, const F FL
   }
   A.setZero();
   A.setFromTriplets(List.begin(), List.end());
-  A.makeCompressed();
+  //A.makeCompressed();
 }
 
 void DGFEMSpace1D::solve_leqn(MAT& A, const EVEC& rhs, EVEC& u) {
@@ -378,11 +376,11 @@ void DGFEMSpace1D::solve_leqn(MAT& A, const EVEC& rhs, EVEC& u) {
   //std::cout << "estimated error: " << solver.error()      << std::endl;
   //std::cout << "======================" << std::endl;
 
-  std::cout << "======solve_leqn by SuperLU======" << std::endl;
+  //std::cout << "======solve_leqn by SuperLU======" << std::endl;
   solver.analyzePattern(A);
   solver.factorize(A);
   u = solver.solve(rhs);
-  std::cout << "=================================" << std::endl;
+  //std::cout << "=================================" << std::endl;
 }
 
 void DGFEMSpace1D::run(F FLUX, afunc g, func source, double t_end) {

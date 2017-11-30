@@ -11,8 +11,7 @@
 
 #include <vector>
 #include <iostream>
-
-extern u_int K;
+#include "para.h"
 
 std::vector<double> Poly(double x);
 std::vector<double> PolyG(double x);

@@ -1,7 +1,5 @@
 #include "BasFun.h"
 
-u_int K = 3;
-
 std::vector<double> Poly(double x) {
   std::vector<double> poly(K);
   switch (K) {
