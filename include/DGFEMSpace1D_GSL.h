@@ -79,6 +79,8 @@ class DGFEMSpace1D {
      *
      * @return RHS, i.e., F(sol)
      */
+    VEC<double> LeftBoundary(const SOL& sol, const VEC<double>& U0, int*, double*, const double t);
+    VEC<double> RightBoundary(const SOL& sol, const VEC<double>& U0, int*, double*, const double t);
     EVEC NLF(const F, const SOL& sol, const SOL& soln, func,
         const double alpha, const double t, const double dt);
     void form_jacobian_rhs(const SOL& sol, const SOL& soln, const F, afunc, func,
@@ -91,7 +93,8 @@ class DGFEMSpace1D {
     void EVEC2SOL(SOL&, const EVEC*);
     VEC<double> cal_norm(const SOL&, const SOL&, int);
     VEC<double> cal_err(const SOL& s1, int n);
-    void print_solution(std::ostream&);
+    void print_solution_integral(std::ostream&);
+    void print_solution_average(std::ostream&);
     MAT get_A();
 };
 
