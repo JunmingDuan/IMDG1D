@@ -3,7 +3,7 @@
  * @brief Implicit DG for 1D conservation laws
  * @author Duan Junming, duanjm@pku.edu.cn
  * @version 1.0
- * @date 2017-11-03
+ * @date 2017-12-11
  */
 
 #include <iostream>
