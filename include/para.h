@@ -8,7 +8,7 @@
 //dimension of the equation, 1 for scalar equation and 3 for Euler equations
 const u_int DIM = 1;
 //number of basis function
-const u_int K = 1;
+const u_int K = 3;
 //0 for ghost = 0, 1 for flux = 0, 2 for period BD
 //ex9
 const u_int BDL = 2; const u_int BDR = 2;

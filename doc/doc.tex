@@ -1,0 +1,492 @@
+\documentclass[a4paper, 11pt]{ctexart}
+\usepackage{srcltx,graphicx}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{color}
+\usepackage{lscape}
+\usepackage{multirow}
+\usepackage{cases}
+\usepackage{enumerate}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage[ruled,vlined]{algorithm2e}
+\usepackage{bm}
+\usepackage{psfrag}
+\usepackage{mathrsfs}
+\usepackage[hang]{subfigure}
+\numberwithin{equation}{section}
+\numberwithin{figure}{section}
+
+\newtheorem{theorem}{定理}
+\newtheorem{example}{例}
+\newtheorem{lemma}{引理}
+\newtheorem{definition}{定义}
+\newtheorem{remark}{注}
+\newtheorem{comment}{注}
+\newtheorem{conjecture}{Conjecture}
+
+\setlength{\oddsidemargin}{0cm}
+\setlength{\evensidemargin}{0cm}
+\setlength{\textwidth}{150mm}
+\setlength{\textheight}{230mm}
+
+\newcommand\note[2]{{{\bf #1}\color{red} [ {\it #2} ]}}
+%\newcommand\note[2]{{ #1 }} % using this line in the formal version
+
+\newcommand\bbC{\mathbb{C}}
+\newcommand\bbR{\mathbb{R}}
+\newcommand\bbN{\mathbb{N}}
+
+\newcommand\diag{\mathrm{diag}}
+\newcommand\tr{\mathrm{tr}}
+\newcommand\dd{\mathrm{d}}
+\renewcommand\div{\mathrm{div}}
+
+\newcommand\be{\boldsymbol{e}}
+\newcommand\bx{\boldsymbol{x}}
+\newcommand\bF{\boldsymbol{F}}
+\newcommand\bJ{\boldsymbol{J}}
+\newcommand\bT{\boldsymbol{T}}
+\newcommand\bG{\boldsymbol{G}}
+\newcommand\bof{\boldsymbol{f}}
+\newcommand\bu{\boldsymbol{u}}
+\newcommand\bn{\boldsymbol{n}}
+\newcommand\bv{\boldsymbol{v}}
+\newcommand\bV{\boldsymbol{V}}
+\newcommand\bU{\boldsymbol{U}}
+\newcommand\bA{\boldsymbol{A}}
+\newcommand\bB{\boldsymbol{B}}
+\newcommand\vecf{\boldsymbol{f}}
+\newcommand\hatF{\hat{F}}
+\newcommand\flux{\hat{F}_{j+1/2}}
+\newcommand\diff{\,\mathrm{d}}
+\newcommand\Norm[1]{\lvert\lvert#1\rvert\rvert}
+
+\newcommand\pd[2]{\dfrac{\partial {#1}}{\partial {#2}}}
+\newcommand\od[2]{\dfrac{\dd {#1}}{\dd {#2}}}
+\newcommand\abs[1]{\lvert #1 \rvert}
+\newcommand\norm[1]{\lvert\lvert #1 \rvert\rvert}
+\newcommand\bt{\bar\theta}
+\newcommand\bd[1]{\bold{#1}}
+\newcommand\pro[2]{\langle{#1},{#2}\rangle}
+
+\title{隐式高精度保正DG方法}
+\author{段俊明\thanks{北京大学数学科学学院，科学与工程计算系，邮箱： {\tt duanjm@pku.edu.cn}} }
+
+\begin{document}
+\maketitle
+%\tableofcontents %If the document is very long
+
+\section{隐式DG格式}
+[Implicit Positivity-Preserving High Order Discontinuous Galerkin Methods for
+  Conservation Laws, Tong Qin and Chi-Wang Shu]
+  给出了求解一维守恒律方程的隐式DG格式,且数值格式保持高精度和保正.
+
+\subsection{DG空间离散}
+考虑方程
+\begin{align}
+  &u_t+f(u)_x=0,\quad (x,t)\in[0,2\pi]\times[0,+\infty],\\
+  &u(x,0)=u_0(x),\quad x\in[0,2\pi],
+\end{align}
+以及给定的合适的边界条件.
+将区域$[0,2\pi]$分解成$N$个子区间,
+$I_j=[x_{j-\frac12},x_{j+\frac12}]$,~$j=1,2,\dots,N$,区间长度为$h_j$.
+定义参考单元$\hat I=[-1,1]$以及$I_j$到$\hat I$的线性变换$T_j(x)=2(x-x_j)/h_j$,
+$x_j=(x_{j-\frac12}+x_{j+\frac12})/2$是区间$I_j$中点.记$(\cdot,\cdot)_j$为区间
+$I_j$上的$L^2$内积,~$(\cdot,\cdot)_{\hat I}$为$\hat I$上的$L^2$内积.定义离散空间,
+$V_h=\{v\in L^2(\Omega): v|_{I_j}\in P_k(I_j),\forall j=1,\dots,N\}$,
+$P_k(I_j)$表示$I_j$上不超过$k$次的多项式函数空间.
+
+半离散的DG格式是去寻找逼近$u_h(t)\in V_h$,使得在每个区间$I_j$上,
+\begin{equation}
+  \dfrac{d}{dt}(u_h(t),v)_j-(f(u_h(t)),v_x)_j+\hat
+  f_{j+\frac12}(u_h(t))v(x_{j+\frac12}^-)-\hat
+  f_{j-\frac12}(u_h(t))v(x_{j-\frac12}^+)=0,
+  \label{eq:dg_space}
+\end{equation}
+对任意$v\in V_h$成立,其中$\hat f_{j+\frac12}(u)=\hat f(u(x_{j+\frac12}^-),
+u(x_{j+\frac12}^+))$,~$\hat f(\cdot,\cdot)$是数值通量.
+我们这里使用LF通量,
+\begin{equation}
+  \hat f(a,b)=\dfrac12[f(a)+f(b)-\alpha(b-a)],
+\end{equation}
+其中$\alpha=\max_{x\in\Omega}\abs{f'(u_0(x))}$.
+
+\subsection{时间离散}
+将\eqref{eq:dg_space}记为
+\begin{equation}
+  \dfrac{d}{dt}(u_h(t),v)_j=L_j(u_h(t),v),\quad \forall v\in V_h,\quad \forall
+  j=1,\dots,N,
+\end{equation}
+其中$L_j(u_h(t),v)= (f(u_h(t)),v_x)_j-[\hat
+  f_{j+\frac12}(u_h(t))v(x_{j+\frac12}^-)-\hat
+f_{j-\frac12}(u_h(t))v(x_{j-\frac12}^+)]$.
+使用向后Euler格式离散该ODE系统,于是全离散的格式是去寻找$t^{n+1}$时间层的逼近
+$u_h^{n+1}\in V_h$,使得在每个区间$I_j$,
+\begin{equation}
+  (u_h^{n+1},v)_j-\Delta t L_j(u_h^{n+1},v)=(u_h^n,v),
+  \label{eq:dg_full}
+\end{equation}
+对任意$v\in V_h$都成立.
+
+\subsection{非线性方程组求解}
+使用Newton迭代法求解\eqref{eq:dg_full}形成的非线性方程组,在每一次迭代中,
+使用GMRES来求解线性方程组,我们设置Newton迭代法的误差容限为$10^{-14}$,~GMRES迭代的误
+差容限是$10^{-14}$,计算稳态解时相邻两步的残量小于$10^{-15}$时终止.
+
+\subsection{保正限制器与时间步长选取}
+文章中指出,不同于显式Euler离散时,CFL数需要一个上界使得格式保正,对于隐式Euler离散
+,CFL数需要一个下界来使得格式保正.
+文章对线性情形做了证明,非线性情形进行了数值验证.
+大致思路为,满足恰当的CFL条件时,由线性方程组求得的单元平均值是正的,因此,我们可以
+使用scaling limiter来使得所有的Gauss-Lobatto点上的值都是正的,之后再进行下一步迭
+代.
+
+\section{数值算例}
+\subsection{精度测试}
+\begin{example}\label{ex:1}
+\begin{equation}
+  u_t+u_x=\sin^4(x),\quad u(x,0)=\sin^2(x),\quad u(0,t)=0,
+\end{equation}
+$x=2\pi$处使用出流边界条件,计算到稳态,该算例的稳态解为
+\begin{equation*}
+  \dfrac{\sin(4x)-8\sin(2x)+12x}{32}.
+\end{equation*}
+\end{example}
+
+\begin{table}[H]
+  \centering
+  \begin{tabular}{c|c|c|c|c|c|c|c|c} \toprule
+ k  &  N &  $L^2$ err& order&$L^1$ err  &order & $L^\infty$ err&order& $\min u_h$ \\ \midrule
+ \multirow{5}{*}{1}  & 20 & 5.829e-03 & - & 3.533e-03 & - & 2.044e-02 & - & -5.170e-03 \\
+                     & 40 & 1.477e-03 & 1.98 & 8.753e-04 & 2.01 & 5.288e-03 & 1.95 & -2.883e-04 \\
+                     & 80 & 3.706e-04 & 2.00 & 2.183e-04 & 2.00 & 1.332e-03 & 1.99 & -1.209e-05 \\
+                     &160 & 9.272e-05 & 2.00 & 5.455e-05 & 2.00 & 3.337e-04 & 2.00 & -4.037e-07 \\
+                     &320 & 2.318e-05 & 2.00 & 1.364e-05 & 2.00 & 8.346e-05 & 2.00 & -1.282e-08 \\ \midrule
+ \multirow{5}{*}{2}  & 20 & 3.705e-04 & - & 2.256e-04 & - & 1.777e-03 & - & -4.952e-05 \\
+                     & 40 & 4.696e-05 & 2.98 & 2.867e-05 & 2.98 & 2.489e-04 & 2.84 & -1.627e-06 \\
+                     & 80 & 5.890e-06 & 3.00 & 3.597e-06 & 2.99 & 3.200e-05 & 2.96 & -5.150e-08 \\
+                     &160 & 7.369e-07 & 3.00 & 4.501e-07 & 3.00 & 4.028e-06 & 2.99 & -1.614e-09 \\
+                     &320 & 9.213e-08 & 3.00 & 5.627e-08 & 3.00 & 5.044e-07 & 3.00 & -5.049e-11 \\ \midrule
+ \multirow{5}{*}{3}  & 20 & 2.256e-05 & - & 1.527e-05 & - & 1.230e-04 & - & -3.877e-05 \\
+                     & 40 & 1.430e-06 & 3.98 & 9.224e-07 & 4.05 & 7.804e-06 & 3.98 & -1.326e-06 \\
+                     & 80 & 8.968e-08 & 3.99 & 5.717e-08 & 4.01 & 4.950e-07 & 3.98 & -4.238e-08 \\
+                     &160 & 5.610e-09 & 4.00 & 3.576e-09 & 4.00 & 3.091e-08 & 4.00 & -1.332e-09 \\
+                     &320 & 3.507e-10 & 4.00 & 2.234e-10 & 4.00 & 1.935e-09 & 4.00 & -4.167e-11 \\ \midrule
+ \multirow{5}{*}{4}  & 20 & 1.294e-06 & - & 8.638e-07 & - & 6.657e-06 & - & -1.324e-06 \\
+                     & 40 & 4.097e-08 & 4.98 & 2.743e-08 & 4.98 & 2.413e-07 & 4.79 & -5.205e-08 \\
+                     & 80 & 1.284e-09 & 5.00 & 8.492e-10 & 5.01 & 7.814e-09 & 4.95 & -1.714e-09 \\
+                     &160 & 4.017e-11 & 5.00 & 2.671e-11 & 4.99 & 2.463e-10 & 4.99 & -5.426e-11 \\
+                     &320 & 1.255e-12 & 5.00 & 8.345e-13 & 5.00 & 7.716e-12 & 5.00 & -1.701e-12 \\ \bottomrule
+  \end{tabular}
+  \caption{例\ref{ex:1},绝对误差,没有加limiter}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabular}{c|c|c|c|c|c|c|c|c} \toprule
+ k  &  N &  $L^2$ err& order&$L^1$ err  &order & $L^\infty$ err&order& $\min u_h$ \\ \midrule
+ \multirow{5}{*}{1}& 20 & 5.824e-03 &  -   & 3.534e-03 &  -   & 2.044e-02 &  -   & 1.000e-13\\
+                   & 40 & 1.477e-03 & 1.98 & 8.753e-04 & 2.01 & 5.288e-03 & 1.95 & 1.000e-13\\
+                   & 80 & 3.705e-04 & 1.99 & 2.183e-04 & 2.00 & 1.332e-03 & 1.99 &1.000e-13\\
+                   &160 & 9.272e-05 & 2.00 & 5.455e-05 & 2.00 & 3.337e-04 & 2.00 &1.000e-13\\
+                   &320 & 2.318e-05 & 2.00 & 1.364e-05 & 2.00 & 8.346e-05 & 2.00 &1.000e-13\\ \midrule
+ \multirow{5}{*}{2}& 20 & 3.705e-04 &  -   & 2.249e-04 &  -   & 1.777e-03 &  - &1.000e-13\\
+                   & 40 & 4.696e-05 & 2.98 & 2.866e-05 & 2.97 & 2.489e-04 & 2.84 &1.000e-13\\
+                   & 80 & 5.890e-06 & 3.00 & 3.597e-06 & 2.99 & 3.200e-05 & 2.96 &1.000e-13\\
+                   &160 & 7.369e-07 & 3.00 & 4.500e-07 & 3.00 & 4.028e-06 & 2.99 &1.000e-13\\
+                   &320 & 9.213e-08 & 3.00 & 5.627e-08 & 3.00 & 5.044e-07 & 3.00 &1.000e-13\\ \midrule
+ \multirow{5}{*}{3}& 20 & 2.423e-05 &  -   & 1.644e-05 &  -   & 1.349e-04 &  - &1.000e-13\\
+                   & 40 & 1.445e-06 & 4.07 & 9.420e-07 & 4.13 & 7.804e-06 & 4.11 &1.000e-13\\
+                   & 80 & 8.980e-08 & 4.01 & 5.748e-08 & 4.03 & 4.950e-07 & 3.98 &1.000e-13\\
+                   &160 & 5.611e-09 & 4.00 & 3.581e-09 & 4.00 & 3.091e-08 & 4.00 &1.000e-13\\
+                   &320 & 3.507e-10 & 4.00 & 2.235e-10 & 4.00 & 1.935e-09 & 4.00 &1.000e-13\\ \midrule
+ \multirow{5}{*}{4}& 20 & 1.362e-06 &  -   & 8.991e-07 &  -   & 6.657e-06 &  - &1.000e-13\\
+                   & 40 & 4.264e-08 & 5.00 & 2.813e-08 & 5.00 & 2.519e-07 & 4.72 &1.000e-13\\
+                   & 80 & 1.314e-09 & 5.02 & 8.608e-10 & 5.03 & 8.310e-09 & 4.92 &1.000e-13\\
+                   &160 & 4.064e-11 & 5.01 & 2.690e-11 & 5.00 & 2.636e-10 & 4.98 &1.000e-13\\
+                   &320 & 1.264e-12 & 5.01 & 8.376e-13 & 5.01 & 8.736e-12 & 4.92 &1.000e-13\\ \bottomrule
+  \end{tabular}
+  \caption{例\ref{ex:1},绝对误差,加上了limiter}
+\end{table}
+该算例加上limiter保持了精度,且解不出负.
+
+
+\begin{example}\label{ex:2}
+\begin{equation}
+  u_t+(\frac{u^2}{2})_x=\sin(\frac{x}{4}),\quad u(x,0)=x,\quad u(0,t)=0,
+\end{equation}
+$x=2\pi$处使用出流边界条件,计算到稳态,该算例的稳态解为
+\begin{equation*}
+  \sqrt{8-8\cos(\dfrac x4)}.
+\end{equation*}
+\end{example}
+
+\begin{table}[H]
+  \centering
+  \begin{tabular}{c|c|c|c|c|c|c|c|c} \toprule
+ k  &  N &  $L^2$ err& order&$L^1$ err  &order & $L^\infty$ err&order& $\min u_h$ \\ \midrule
+ \multirow{5}{*}{1}  &  20 & 1.862e-04 &  -   & 1.273e-04 &  -   & 7.174e-04 &  -   & -7.692e-09 \\
+                     &  40 & 4.632e-05 & 2.01 & 3.188e-05 & 2.00 & 1.806e-04 & 1.99 & -2.276e-10 \\
+                     &  80 & 1.155e-05 & 2.00 & 7.979e-06 & 2.00 & 4.529e-05 & 2.00 & -6.929e-12 \\
+                     & 160 & 2.884e-06 & 2.00 & 1.996e-06 & 2.00 & 1.134e-05 & 2.00 & -2.138e-13 \\ \midrule
+ \multirow{5}{*}{2}  &  20 & 4.971e-06 &  -   & 2.857e-06 &  -   & 2.306e-05 & -    & -7.221e-07 \\
+                     &  40 & 7.490e-07 & 2.73 & 3.807e-07 & 2.91 & 4.689e-06 & 2.30 & -7.404e-08 \\
+                     &  80 & 1.121e-07 & 2.74 & 5.019e-08 & 2.92 & 9.515e-07 & 2.30 & -7.560e-09 \\
+                     & 160 & 1.671e-08 & 2.75 & 6.574e-09 & 2.93 & 1.930e-07 & 2.30 & -7.700e-10 \\ \midrule
+ \multirow{5}{*}{3}  &  20 & 1.419e-09 &  -   & 9.819e-10 &  -   & 7.919e-09 & -    & 2.529e-13  \\
+                     &  40 & 8.827e-11 & 4.01 & 6.148e-11 & 4.00 & 4.977e-10 & 3.99 & 3.413e-15  \\
+                     &  80 & 5.504e-12 & 4.00 & 3.846e-12 & 4.00 & 3.119e-11 & 4.00 & 4.969e-17  \\
+                     & 160 & 3.435e-13 & 4.00 & 2.407e-13 & 4.00 & 1.950e-12 & 4.00 & 1.326e-18  \\ \midrule
+ \multirow{5}{*}{4}  &  20 & 2.953e-11 &  -   & 1.227e-11 &  -   & 2.363e-10 & -    & 2.728e-12  \\
+                     &  40 & 1.115e-12 & 4.73 & 4.015e-13 & 4.93 & 1.229e-11 & 4.26 & 7.099e-14  \\
+                     &  80 & 4.058e-14 & 4.78 & 1.299e-14 & 4.95 & 6.115e-13 & 4.33 & 1.839e-15  \\
+                     & 160 & 2.511e-15 & 4.01 & 6.867e-16 & 4.24 & 6.250e-14 & 3.29 & 4.806e-17  \\ \bottomrule
+  \end{tabular}
+  \caption{例\ref{ex:2},绝对误差,没有加limiter}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabular}{c|c|c|c|c|c|c|c|c} \toprule
+ k  &  N &  $L^2$ err& order&$L^1$ err  &order & $L^\infty$ err&order& $\min u_h$ \\ \midrule
+ \multirow{5}{*}{1}  &  20 & 1.862e-04 &  -   & 1.273e-04 &  -   & 7.174e-04 & -  & 1.000e-13\\
+                     &  40 & 4.632e-05 & 2.01 & 3.188e-05 & 2.00 & 1.806e-04 & 1.99 & 1.000e-13\\
+                     &  80 & 1.155e-05 & 2.00 & 7.979e-06 & 2.00 & 4.529e-05 & 2.00 & 1.000e-13\\
+                     & 160 & 2.884e-06 & 2.00 & 1.996e-06 & 2.00 & 1.134e-05 & 2.00 & 1.000e-13\\ \midrule
+ \multirow{5}{*}{2}  &  20 & 5.234e-06 &  -   & 2.821e-06 &  -   & 2.536e-05 & -  & 1.000e-13\\
+                     &  40 & 7.845e-07 & 2.74 & 3.749e-07 & 2.91 & 5.129e-06 & 2.31 & 1.000e-13\\
+                     &  80 & 1.170e-07 & 2.75 & 4.936e-08 & 2.93 & 1.038e-06 & 2.30 & 1.000e-13\\
+                     & 160 & 1.739e-08 & 2.75 & 6.473e-09 & 2.93 & 2.103e-07 & 2.30 & 1.000e-13\\ \midrule
+ \multirow{5}{*}{3}  &  20 & 1.419e-09 &  -   & 9.819e-10 &  -   & 7.919e-09 & -  & 2.529e-13\\
+                     &  40 & 8.827e-11 & 4.01 & 6.148e-11 & 4.00 & 4.977e-10 & 3.99 & 1.000e-13\\
+                     &  80 & 5.504e-12 & 4.00 & 3.847e-12 & 4.00 & 3.119e-11 & 4.00 & 1.000e-13\\
+                     & 160 & 3.439e-13 & 4.00 & 2.418e-13 & 3.99 & 1.950e-12 & 4.00 & 1.000e-13\\ \midrule
+ \multirow{5}{*}{4}  &  20 & 2.953e-11 &  -   & 1.227e-11 &  -   & 2.363e-10 & -  & 2.728e-12\\
+                     &  40 & 1.112e-12 & 4.73 & 4.012e-13 & 4.93 & 1.225e-11 & 4.27 & 1.000e-13\\
+                     &  80 & 3.308e-14 & 5.07 & 1.247e-14 & 5.01 & 4.331e-13 & 4.82 & 1.000e-13\\
+                     & 160 & 1.661e-14 & 0.99 & 2.316e-15 & 2.43 & 3.177e-13 & 0.45 & 1.000e-13\\ \bottomrule
+  \end{tabular}
+  \caption{例\ref{ex:2},绝对误差,加上了limiter}
+\end{table}
+该算例加上limiter保持了精度,且解不出负.但在P4的时候,160个网格时由于几乎达到机器
+精度,误差阶下降了.
+
+\begin{example}\label{ex:4}
+\begin{equation}
+  u_t+(\frac{u^2}{2})_x=0,\quad u(x,0)=1+\sin(x),
+\end{equation}
+$x=0,2\pi$处使用周期边界条件,计算到$t=0.5$,该算例的精确解可由特征线法求出,
+\end{example}
+
+\begin{table}[H]
+  \centering
+  \begin{tabular}{c|c|c|c|c|c|c|c|c} \toprule
+ k  &  N &  $L^2$ err& order&$L^1$ err  &order & $L^\infty$ err&order& $\min u_h$ \\ \midrule
+ \multirow{5}{*}{0}  &  20 & 1.843e-01 & 0.00 & 1.517e-01 & 0.00 & 4.274e-01 & 0.00 & 1.596e-01   \\
+                     &  40 & 1.013e-01 & 0.86 & 8.218e-02 & 0.88 & 2.413e-01 & 0.83 & 7.892e-02   \\
+                     &  80 & 5.341e-02 & 0.92 & 4.274e-02 & 0.94 & 1.373e-01 & 0.81 & 3.906e-02   \\
+                     & 160 & 2.750e-02 & 0.96 & 2.185e-02 & 0.97 & 7.306e-02 & 0.91 & 1.954e-02   \\
+                     & 320 & 1.394e-02 & 0.98 & 1.103e-02 & 0.99 & 3.741e-02 & 0.97 & 9.787e-03   \\ \midrule
+ \multirow{5}{*}{1}  &  20 & 6.440e-02 & 0.00 & 4.612e-02 & 0.00 & 1.727e-01 & 0.00 & -6.913e-03  \\
+                     &  40 & 3.574e-02 & 0.85 & 2.439e-02 & 0.92 & 9.575e-02 & 0.85 & -2.058e-03  \\
+                     &  80 & 1.910e-02 & 0.90 & 1.289e-02 & 0.92 & 5.256e-02 & 0.87 & -5.142e-04  \\
+                     & 160 & 9.893e-03 & 0.95 & 6.644e-03 & 0.96 & 2.706e-02 & 0.96 & -1.285e-04  \\
+                     & 320 & 5.039e-03 & 0.97 & 3.377e-03 & 0.98 & 1.367e-02 & 0.99 & -3.213e-05  \\ \midrule
+ \multirow{5}{*}{2}  &  20 & 6.384e-02 & 0.00 & 4.434e-02 & 0.00 & 1.656e-01 & 0.00 & 3.076e-04   \\
+                     &  40 & 3.564e-02 & 0.84 & 2.424e-02 & 0.87 & 9.661e-02 & 0.78 & 7.105e-06   \\
+                     &  80 & 1.908e-02 & 0.90 & 1.285e-02 & 0.92 & 5.244e-02 & 0.88 & 3.599e-07   \\
+                     & 160 & 9.891e-03 & 0.95 & 6.636e-03 & 0.95 & 2.700e-02 & 0.96 & 2.129e-08   \\
+                     & 320 & 5.039e-03 & 0.97 & 3.376e-03 & 0.98 & 1.365e-02 & 0.98 & 1.289e-09   \\ \midrule
+ \multirow{5}{*}{3}  &  20 & 6.384e-02 & 0.00 & 4.431e-02 & 0.00 & 1.645e-01 & 0.00 & -4.717e-05  \\
+                     &  40 & 3.564e-02 & 0.84 & 2.418e-02 & 0.87 & 9.654e-02 & 0.77 & -1.228e-06  \\
+                     &  80 & 1.908e-02 & 0.90 & 1.284e-02 & 0.91 & 5.230e-02 & 0.88 & -6.910e-08  \\
+                     & 160 & 9.891e-03 & 0.95 & 6.635e-03 & 0.95 & 2.697e-02 & 0.96 & -4.103e-09  \\
+                     & 320 & 5.039e-03 & 0.97 & 3.376e-03 & 0.98 & 1.365e-02 & 0.98 & -2.498e-10  \\ \bottomrule
+  \end{tabular}
+  \caption{例\ref{ex:4},绝对误差,没有加limiter}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \subfigure[不加limiter,~P3,~$u$]{
+    \includegraphics[width=0.45\textwidth]{../example9_burgers_acc_period/ex9_u.eps}
+}
+\subfigure[局部放大图]{
+    \includegraphics[width=0.45\textwidth]{../example9_burgers_acc_period/ex9_u_zoom_in.eps}
+}
+\caption{example~\ref{ex:4}}
+\end{figure}
+发现该算例只有一阶精度.
+
+\begin{example}\label{ex:10}
+  为了验证问题是否与非线性有关,求解线性问题的非稳态问题.
+\begin{equation}
+  u_t+u_x=0,\quad u(x,0)=1+\sin(x),
+\end{equation}
+$x=0,2\pi$处使用周期边界条件,计算到$t=0.5$,该算例的精确解可由特征线法求出,
+\end{example}
+
+\begin{table}[H]
+  \centering
+  \begin{tabular}{c|c|c|c|c|c|c|c|c} \toprule
+ k  &  N &  $L^2$ err& order&$L^1$ err  &order & $L^\infty$ err&order& $\min u_h$ \\ \midrule
+ \multirow{5}{*}{0}  &  20 & 1.430e-01 & 0.00 & 1.280e-01 & 0.00 & 2.254e-01 & 0.00 & 1.358e-01 \\
+                     &  40 & 7.562e-02 & 0.92 & 6.790e-02 & 0.91 & 1.143e-01 & 0.98 & 7.664e-02 \\
+                     &  80 & 3.847e-02 & 0.97 & 3.461e-02 & 0.97 & 5.639e-02 & 1.02 & 3.841e-02 \\
+                     & 160 & 1.946e-02 & 0.98 & 1.751e-02 & 0.98 & 2.804e-02 & 1.01 & 1.949e-02 \\
+                     & 320 & 9.768e-03 & 0.99 & 8.794e-03 & 0.99 & 1.395e-02 & 1.01 & 9.766e-03 \\ \midrule
+ \multirow{5}{*}{1}  &  20 & 4.502e-02 & 0.00 & 4.043e-02 & 0.00 & 6.645e-02 & 0.00 & 5.695e-02 \\
+                     &  40 & 2.586e-02 & 0.80 & 2.325e-02 & 0.80 & 3.745e-02 & 0.83 & 3.268e-02 \\
+                     &  80 & 1.324e-02 & 0.97 & 1.191e-02 & 0.96 & 1.895e-02 & 0.98 & 1.806e-02 \\
+                     & 160 & 6.800e-03 & 0.96 & 6.122e-03 & 0.96 & 9.680e-03 & 0.97 & 9.416e-03 \\
+                     & 320 & 3.428e-03 & 0.99 & 3.087e-03 & 0.99 & 4.864e-03 & 0.99 & 4.825e-03 \\ \midrule
+ \multirow{5}{*}{2}  &  20 & 4.461e-02 & 0.00 & 4.016e-02 & 0.00 & 6.309e-02 & 0.00 & 6.337e-02 \\
+                     &  40 & 2.581e-02 & 0.79 & 2.323e-02 & 0.79 & 3.649e-02 & 0.79 & 3.647e-02 \\
+                     &  80 & 1.323e-02 & 0.96 & 1.191e-02 & 0.96 & 1.871e-02 & 0.96 & 1.870e-02 \\
+                     & 160 & 6.799e-03 & 0.96 & 6.122e-03 & 0.96 & 9.616e-03 & 0.96 & 9.613e-03 \\
+                     & 320 & 3.428e-03 & 0.99 & 3.087e-03 & 0.99 & 4.848e-03 & 0.99 & 4.855e-03 \\ \midrule
+ \multirow{5}{*}{3}  &  20 & 4.461e-02 & 0.00 & 4.014e-02 & 0.00 & 6.308e-02 & 0.00 & 6.217e-02 \\
+                     &  40 & 2.581e-02 & 0.79 & 2.323e-02 & 0.79 & 3.649e-02 & 0.79 & 3.630e-02 \\
+                     &  80 & 1.323e-02 & 0.96 & 1.191e-02 & 0.96 & 1.871e-02 & 0.96 & 1.875e-02 \\
+                     & 160 & 6.799e-03 & 0.96 & 6.122e-03 & 0.96 & 9.616e-03 & 0.96 & 9.620e-03 \\
+                     & 320 & 3.428e-03 & 0.99 & 3.087e-03 & 0.99 & 4.848e-03 & 0.99 & 4.848e-03 \\ \bottomrule
+  \end{tabular}
+  \caption{例\ref{ex:4},绝对误差,没有加limiter}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \subfigure[不加limiter,~P3,~$u$]{
+    \includegraphics[width=0.45\textwidth]{../example10_linear_acc_period/ex10_u.eps}
+}
+\subfigure[局部放大图]{
+  \includegraphics[width=0.45\textwidth]{../example10_linear_acc_period/ex10_u_zoom_in.eps}
+}
+\caption{example~\ref{ex:10}}
+\end{figure}
+发现一阶精度不是非线性带来的,而是非稳态解导致的,说明时间方向确实是一阶精度.
+现在取$\Delta t=h^{k+1}$,重新计算线性问题的非稳态解和burgers方程的非稳态解.
+
+\begin{table}[H]
+  \centering
+  \begin{tabular}{c|c|c|c|c|c|c|c|c} \toprule
+ k  &  N &  $L^2$ err& order&$L^1$ err  &order & $L^\infty$ err&order& $\min u_h$ \\ \midrule
+ \multirow{5}{*}{1}  &  20 & 1.789e-02 & 0.00 & 1.550e-02 & 0.00 & 2.809e-02 & 0.00 & 1.716e-02  \\
+                     &  40 & 4.521e-03 & 1.98 & 3.900e-03 & 1.99 & 7.127e-03 & 1.98 & 2.452e-03  \\
+                     &  80 & 1.140e-03 & 1.99 & 9.826e-04 & 1.99 & 1.800e-03 & 1.99 & 9.302e-04  \\
+                     & 160 & 2.850e-04 & 2.00 & 2.455e-04 & 2.00 & 4.499e-04 & 2.00 & 1.841e-04  \\
+                     & 320 & 7.127e-05 & 2.00 & 6.139e-05 & 2.00 & 1.125e-04 & 2.00 & 7.382e-05  \\ \midrule
+  \end{tabular}
+  \caption{例\ref{ex:10},绝对误差,没有加limiter}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabular}{c|c|c|c|c|c|c|c|c} \toprule
+ k  &  N &  $L^2$ err& order&$L^1$ err  &order & $L^\infty$ err&order& $\min u_h$ \\ \midrule
+ \multirow{5}{*}{1}  &  20 &2.554e-02 &0.00 &1.838e-02 &0.00 &6.170e-02 &0.00 &-8.211e-03 \\
+                     &  40 &6.649e-03 &1.94 &4.637e-03 &1.99 &1.823e-02 &1.76 &-2.060e-03 \\
+                     &  80 &1.682e-03 &1.98 &1.175e-03 &1.98 &4.981e-03 &1.87 &-5.142e-04 \\
+                     & 160 &4.205e-04 &2.00 &2.943e-04 &2.00 &1.267e-03 &1.97 &-1.285e-04 \\
+                     & 320 &1.051e-04 &2.00 &7.354e-05 &2.00 &3.201e-04 &1.98 &-3.213e-05 \\ \bottomrule
+  \end{tabular}
+  \caption{例\ref{ex:4},绝对误差,没有加limiter}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabular}{c|c|c|c|c|c|c|c|c} \toprule
+ k  &  N &  $L^2$ err& order&$L^1$ err  &order & $L^\infty$ err&order& $\min u_h$ \\ \midrule
+ \multirow{5}{*}{1}  &  20 &2.558e-02 &0.00 &1.837e-02 &0.00 &6.126e-02 &0.00 &7.207e-06 \\
+                     &  40 &6.655e-03 &1.94 &4.637e-03 &1.99 &1.823e-02 &1.75 &7.319e-07 \\
+                     &  80 &1.683e-03 &1.98 &1.175e-03 &1.98 &4.981e-03 &1.87 &1.330e-07 \\
+                     & 160 &4.206e-04 &2.00 &2.943e-04 &2.00 &1.267e-03 &1.97 &1.050e-08 \\
+                     & 320 &1.051e-04 &2.00 &7.354e-05 &2.00 &3.201e-04 &1.98 &7.155e-10 \\ \bottomrule
+  \end{tabular}
+  \caption{例\ref{ex:4},绝对误差,加了limiter}
+\end{table}
+
+
+
+\begin{example}\label{ex:6}
+  求解Euler方程组激波管问题,两端都是导数为0的Neumann边界条件.
+  初值
+  \begin{equation}
+    \begin{cases}
+      \rho=1, & x<0.5,\\
+      v=0, & x<0.5,\\
+      p=1000, & x<0.5,\\
+    \end{cases}\quad
+    \begin{cases}
+      \rho=1, & x\geqslant0.5,\\
+      v=0, & x\geqslant0.5,\\
+      p=0.01, & x\geqslant0.5,\\
+    \end{cases}
+  \end{equation}
+  计算到$t=0.01$,使用$200$个网格.
+\end{example}
+
+\begin{figure}[H]
+  \centering
+  \subfigure[不加limiter,~P2,~$\rho$]{
+    \includegraphics[width=0.45\textwidth]{../example6_Euler_shock_tube/ex6_rho_NL.eps}
+}
+\subfigure[不加limiter,~P2,~$p$]{
+    \includegraphics[width=0.45\textwidth]{../example6_Euler_shock_tube/ex6_p_NL.eps}
+}
+\caption{example~\ref{ex:6}}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \subfigure[加limiter,~P2,~$\rho$]{
+    \includegraphics[width=0.45\textwidth]{../example6_Euler_shock_tube/ex6_rho_L.eps}
+}
+\subfigure[加limiter,~P2,~$p$]{
+    \includegraphics[width=0.45\textwidth]{../example6_Euler_shock_tube/ex6_p_L.eps}
+}
+\caption{example~\ref{ex:6}}
+\end{figure}
+该算例加上limiter有较明显的效果,压力不再出负.
+
+\begin{example}\label{ex:7}
+  求解Euler方程组双稀疏波问题,两端都是导数为0的Neumann边界条件.
+  初值
+  \begin{equation}
+    \begin{cases}
+      \rho=1, & x<0.5,\\
+      v=-2, & x<0.5,\\
+      p=0.4, & x<0.5,\\
+    \end{cases}\quad
+    \begin{cases}
+      \rho=1, & x\geqslant0.5,\\
+      v=2, & x\geqslant0.5,\\
+      p=0.4, & x\geqslant0.5,\\
+    \end{cases}
+  \end{equation}
+  计算到$t=0.1$,使用$200$个网格.
+\end{example}
+
+\begin{figure}[H]
+  \centering
+  \subfigure[加limiter,~P1,~$\rho$]{
+    \includegraphics[width=0.45\textwidth]{../example7_Euler_double_rarefaction/ex7_rho_P1_L.eps}
+}
+\subfigure[加limiter,~P1,~$p$]{
+    \includegraphics[width=0.45\textwidth]{../example7_Euler_double_rarefaction/ex7_p_P1_L.eps}
+}
+\caption{example~\ref{ex:7}}
+\end{figure}
+
+该算例原文是使用的P2元,但我算不过去,还需修改.
+
+
+\section{未完成的部分}
+\begin{enumerate}
+  \item 非线性的算例稳态解精度依然不太对,部分算例还需要尝试,
+  \item 用到扩散项的证明需要补充,
+  \item 可以考虑时间方向高阶?
+\end{enumerate}
+
+\end{document}
+

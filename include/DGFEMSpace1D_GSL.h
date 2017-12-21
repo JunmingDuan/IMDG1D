@@ -81,7 +81,7 @@ class DGFEMSpace1D {
      */
     VEC<double> LeftBoundary(const SOL& sol, const VEC<double>& U0, int*, double*, const double t);
     VEC<double> RightBoundary(const SOL& sol, const VEC<double>& U0, int*, double*, const double t);
-    EVEC NLF(const F, const SOL& sol, const SOL& soln, func,
+    void NLF(EVEC *, const F, const SOL& sol, const SOL& soln, func,
         const double alpha, const double t, const double dt);
     void form_jacobian_rhs(const SOL& sol, const SOL& soln, const F, afunc, func,
         const double, const double, const double);

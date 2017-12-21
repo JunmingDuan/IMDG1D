@@ -3,6 +3,8 @@
  * @brief
  * @author Duan Junming, duanjm@pku.edu.cn
  * @version 1.0
+ * @        1.1 fix the bug without reclaiming memory
+ * @
  * @date 2017-11-19
  */
 
@@ -32,7 +34,6 @@ DGFEMSpace1D::DGFEMSpace1D(u_int Nx, double xl, double xr)
   }
   A = gsl_spmatrix_alloc(Nx*K*DIM, Nx*K*DIM);
   B = gsl_matrix_alloc(Nx*K*DIM, Nx*K*DIM);
-  //p_full_solver = gsl_permutation_alloc(Nx*K*DIM);
   rhs = gsl_vector_alloc(Nx*K*DIM);
   vec_u1 = gsl_vector_alloc(Nx*K*DIM);
   vec_u2 = gsl_vector_alloc(Nx*K*DIM);
@@ -128,7 +129,7 @@ double DGFEMSpace1D::cal_dt(const SOL& sol, afunc g) {
   //return 0.5*h/cal_characteristic_speed(sol, g);//ex6
   //return 2*h/cal_characteristic_speed(sol, g);//ex7
   //return 2*h/cal_characteristic_speed(sol, g);//ex8
-  return h/cal_characteristic_speed(sol, g);//ex9
+  return pow(h,2)/cal_characteristic_speed(sol, g);//ex9
 }
 
 double DGFEMSpace1D::cal_characteristic_speed(const SOL& sol, afunc g) {
@@ -193,9 +194,6 @@ void DGFEMSpace1D::Newton_iter(const SOL& sol, const F FLUX, const afunc g, func
     //std::cout << "vec_u1:" << std::endl;
     //gsl_vector_fprintf(stdout, vec_u1, "%.6lf");
     EVEC2SOL(sol_new, vec_u1);
-    //gsl_vector * tmp = gsl_vector_alloc(Nx*K*DIM);
-    //*tmp = NLF(FLUX, sol_new, sol, source, alpha, t, dt);
-    //Fval_norm = gsl_blas_dnrm2(tmp);
     std::cout << "Nt_ite: " << ++Nt_ite
       << ", Nt_err: " << Nt_err
       //<< ", Fval: " << Fval_norm
@@ -209,9 +207,9 @@ int kronecker(const int a, const int b) {
   else return 0;
 }
 
-EVEC DGFEMSpace1D::NLF(const F FLUX, const SOL& sol, const SOL& soln, func source,
+void DGFEMSpace1D::NLF(EVEC * fk, const F FLUX, const SOL& sol, const SOL& soln, func source,
     const double alpha, const double t, const double dt) {
-  EVEC * fk = gsl_vector_alloc(Nx*K*DIM);
+  gsl_vector_set_zero(fk);
   int row;
   std::vector<double> x = TemQuad.points();
   std::vector<double> pnt, wei;
@@ -283,7 +281,6 @@ EVEC DGFEMSpace1D::NLF(const F FLUX, const SOL& sol, const SOL& soln, func sourc
       }
     }
   }
-  return *fk;
 }
 
 void my_gsl_spmat_add(gsl_spmatrix*A, const int row, const int col, const double val) {
@@ -431,7 +428,7 @@ void DGFEMSpace1D::form_jacobian_rhs(const SOL& sol, const SOL& soln, const F FL
     }
   }
   //RHS
-  *rhs = NLF(FLUX, sol, soln, source, alpha, t, dt);
+  NLF(rhs, FLUX, sol, soln, source, alpha, t, dt);
   gsl_vector_scale(rhs, -1);
 
   //std::cout << "A:\n" << std::endl;
@@ -481,6 +478,7 @@ void DGFEMSpace1D::solve_leqn(MAT *A, const EVEC *rhs, EVEC *u) {
       //fprintf(stdout, "Converged, iter %d, residual %.6e\n", ++iter, residual);
   }
   while (status == GSL_CONTINUE && iter < 1e1);
+  gsl_splinalg_itersolve_free(work);
   //std::cout << "===================================" << std::endl;
   //std::cout << "==solve_leqn by GSL full_matrix_LU==" << std::endl;
   //int s;
@@ -681,76 +679,6 @@ VEC<double> DGFEMSpace1D::cal_err(const SOL& s1, int n) {
     return norm;
   }
 }
-
-//VEC<double> DGFEMSpace1D::cal_err(const SOL& s1, int n) {
-  //VEC<double> norm(DIM,0), tmp1, tmp2;
-  //if(n == 2) {
-    //for(u_int i = 0; i < Nx; ++i) {
-      //std::vector<double> p = QUADINFO[i].points();
-      //std::vector<double> w = QUADINFO[i].weight();
-      //for(u_int g = 0; g < p.size(); ++g) {
-        //tmp1 = Composition(s1,i,p[g],0);
-        //tmp2 = exact1(p[g],0);
-        //for(u_int d = 0; d < DIM; ++d) {
-          //norm[d] += pow(tmp1[d]-tmp2[d], 2) * w[g];
-        //}
-      //}
-    //}
-    //for(u_int d = 0; d < DIM; ++d) {
-      //norm[d] = sqrt(norm[d]/Nx/2);
-    //}
-    //return norm;
-  //}
-  //else if(n == 1) {
-    //for(u_int i = 0; i < Nx; ++i) {
-      //std::vector<double> p = QUADINFO[i].points();
-      //std::vector<double> w = QUADINFO[i].weight();
-      //for(u_int g = 0; g < p.size(); ++g) {
-        //tmp1 = Composition(s1,i,p[g],0);
-        //tmp2 = exact1(p[g],0);
-        //for(u_int d = 0; d < DIM; ++d) {
-          //norm[d] += fabs(tmp1[d]-tmp2[d]) * w[g];
-        //}
-      //}
-    //}
-    //for(u_int d = 0; d < DIM; ++d) {
-      //norm[d] = (norm[d]/Nx/2);
-    //}
-    //return norm;
-  //}
-  //else if(n == 0) {
-    //for(u_int i = 0; i < Nx; ++i) {
-      //std::vector<double> p = QUADINFO[i].points();
-      //std::vector<double> w = QUADINFO[i].weight();
-      //for(u_int g = 0; g < p.size(); ++g) {
-        //tmp1 = Composition(s1,i,p[g],0);
-        //tmp2 = exact1(p[g],0);
-        //for(u_int d = 0; d < DIM; ++d) {
-          //if( fabs(tmp1[d]-tmp2[d]) > norm[d] ) norm[d] = fabs(tmp1[d]-tmp2[d]);
-        //}
-      //}
-    //}
-    //return norm;
-
-  //}
-  //else {
-    //std::cout << "Wrong norm choice!" << std::endl;
-    //return norm;
-  //}
-//}
-
-//void DGFEMSpace1D::print_solution(std::ostream& os) {
-	//os.precision(16);
-	//os << std::showpos;
-  //os.setf(std::ios::scientific);
-  //double center;
-  //for(u_int i = 0; i < Nx; ++i) {
-    //center = 0.5*(mesh[i]+mesh[i+1]);
-    //os << center << " "  << Composition(sol,i,center,0) << "\n";
-  //}
-  //os << std::endl;
-  //os << std::defaultfloat;
-//}
 
 void DGFEMSpace1D::print_solution_integral(std::ostream& os) {
   os.precision(16);
