@@ -129,7 +129,7 @@ double DGFEMSpace1D::cal_dt(const SOL& sol, afunc g) {
   //return 0.5*h/cal_characteristic_speed(sol, g);//ex6
   //return 2*h/cal_characteristic_speed(sol, g);//ex7
   //return 2*h/cal_characteristic_speed(sol, g);//ex8
-  return pow(h,2)/cal_characteristic_speed(sol, g);//ex9
+  return 2*pow(h,1)/cal_characteristic_speed(sol, g);//ex9
 }
 
 double DGFEMSpace1D::cal_characteristic_speed(const SOL& sol, afunc g) {
@@ -472,12 +472,12 @@ void DGFEMSpace1D::solve_leqn(MAT *A, const EVEC *rhs, EVEC *u) {
     status = gsl_splinalg_itersolve_iterate(A, rhs, tol, u, work);
     /* print out residual norm ||A*u - f|| */
     residual = gsl_splinalg_itersolve_normr(work);
-    //fprintf(stdout, "iter %zu residual = %.12e\n", iter++, residual);
+    fprintf(stdout, "iter %zu residual = %.12e\n", iter++, residual);
 
     //if (status == GSL_SUCCESS)
       //fprintf(stdout, "Converged, iter %d, residual %.6e\n", ++iter, residual);
   }
-  while (status == GSL_CONTINUE && iter < 1e1);
+  while (status == GSL_CONTINUE && iter < 1e2);
   gsl_splinalg_itersolve_free(work);
   //std::cout << "===================================" << std::endl;
   //std::cout << "==solve_leqn by GSL full_matrix_LU==" << std::endl;
@@ -509,7 +509,9 @@ void DGFEMSpace1D::run_steady(F FLUX, afunc g, func source) {
       do {
         forward_one_step(sol, FLUX, g, source, t, dt, &dtt, sol1);
         is_pp = judge_positivity(sol1);
-        if(is_pp == 0) dt *= 0.5;
+        if(is_pp == 0) {
+          dt *= 2;
+        }
       } while(is_pp == 0);
       Pk2val(sol1, cell_val);
       scaling_limiter::run(cell_average, cell_val, sol1);
@@ -539,7 +541,8 @@ void DGFEMSpace1D::run_unsteady(F FLUX, afunc g, func source, double t_end) {
         forward_one_step(sol, FLUX, g, source, t, dt, &dtt, sol1);
         is_pp = judge_positivity(sol1);
         if(is_pp == 0) {
-          dt *= 0.5;
+          dt *= 1.2;
+          if(t + dt > t_end) dt = t_end - t;
         }
         circle++;
       } while(is_pp == 0);

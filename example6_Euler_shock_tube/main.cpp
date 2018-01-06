@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
   std::string filename(s.str());
   std::ofstream out(filename.c_str());
   std::cout << "Print solution to " << filename << "..." << std::endl;
-  Problem.print_solution(out);
+  Problem.print_solution_average(out);
   out.close();
   std::cout << "Time consumed: "
     //<< std::setiosflags(std::ios::scientific)

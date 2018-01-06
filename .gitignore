@@ -1,0 +1,9 @@
+*.o
+*.d
+*.dat
+*.eps
+*.pdf
+*main
+*log
+*aux
+
