@@ -41,25 +41,26 @@
 \newcommand\dd{\mathrm{d}}
 \renewcommand\div{\mathrm{div}}
 
-\newcommand\be{\boldsymbol{e}}
-\newcommand\bx{\boldsymbol{x}}
-\newcommand\bF{\boldsymbol{F}}
-\newcommand\bJ{\boldsymbol{J}}
-\newcommand\bT{\boldsymbol{T}}
-\newcommand\bG{\boldsymbol{G}}
-\newcommand\bof{\boldsymbol{f}}
-\newcommand\bu{\boldsymbol{u}}
-\newcommand\bn{\boldsymbol{n}}
-\newcommand\bv{\boldsymbol{v}}
-\newcommand\bV{\boldsymbol{V}}
-\newcommand\bU{\boldsymbol{U}}
-\newcommand\bA{\boldsymbol{A}}
-\newcommand\bB{\boldsymbol{B}}
+\newcommand\be{\bm{e}}
+\newcommand\bx{\bm{x}}
+\newcommand\bF{\bm{F}}
+\newcommand\bJ{\bm{J}}
+\newcommand\bT{\bm{T}}
+\newcommand\bG{\bm{G}}
+\newcommand\bof{\bm{f}}
+\newcommand\bu{\bm{u}}
+\newcommand\bn{\bm{n}}
+\newcommand\bv{\bm{v}}
+\newcommand\bV{\bm{V}}
+\newcommand\bU{\bm{U}}
+\newcommand\bA{\bm{A}}
+\newcommand\bB{\bm{B}}
 \newcommand\vecf{\boldsymbol{f}}
 \newcommand\hatF{\hat{F}}
 \newcommand\flux{\hat{F}_{j+1/2}}
 \newcommand\diff{\,\mathrm{d}}
 \newcommand\Norm[1]{\lvert\lvert#1\rvert\rvert}
+\newcommand\doh[1]{\dfrac{1}{h_{#1}}}
 
 \newcommand\pd[2]{\dfrac{\partial {#1}}{\partial {#2}}}
 \newcommand\od[2]{\dfrac{\dd {#1}}{\dd {#2}}}
@@ -481,10 +482,325 @@ $x=0,2\pi$处使用周期边界条件,计算到$t=0.5$,该算例的精确解可�
 该算例原文是使用的P2元,但我算不过去,还需修改.
 
 
+\section{扩散项的隐式保正}
+Scaling限制器的成功实现分为两部分,对于显式格式来说,一是选取适当的CFL数使得一阶单调格
+式保正,从而下一时间层的平均值非负,二是利用Scaling Limiter把下一时间层的平均值与
+得到的多项式做加权平均,使得多项式在各个Gauss点上非负.那么对于隐式格式,要做的一是
+使用M矩阵的性质使得下一时间层的平均值非负,二是利用Scaling Limiter使得各个Gauss点
+上的解非负.因此隐式格式保正的区别就在于分析格式形成的线性方程组的矩阵,要使它是一
+个M矩阵.最近的隐式保正的工作包括Tong Qin和Chi-Wang Shu对于守恒律方程组保正的一些
+应用,理论证明了线性对流方程的隐式保正算法的有效性和高精度,对于扩散项保正的工作包
+括Xiangxiong Zhang对于Ns方程的扩散项设计了一种单调通量,并将它推广到了一般的对流
+扩散方程中,不过这些是显式推进的.
+显示格式与隐式格式使用Scaling Limiter的方式不同,显式格式在计算通量之前使用
+Scaling Limiter,使得Gauss点上的函数值是正的,再使用更新的函数值来计算通量,在一定
+的CFL数限制下使得下一步的平均值是正的;而隐式格式通量是与下一时间层有关的,先更新
+下一时间层的函数值,再使用Scaling Limiter使得下一时间层的平均值是正的.
+
+考虑常系数热方程
+\begin{equation*}
+  u_t=u_{xx}
+\end{equation*}
+的LDG离散,为了便于分析使用周期边界条件.
+令$q=\sqrt{a}u_x,g(u)=\int^u \sqrt{a}\dd u=\sqrt{a}u$,
+寻找$u_h(t),q_h(t)\in V_h$,使得在每个区间$I_j$上,
+\begin{align}
+  \dfrac{d}{dt}(u_h(t),v)_j&=-(\sqrt{a}q_h(t),v_x)_j
+  +\sqrt{a}\hat{q}_{h,j+\frac12}v(x_{j+\frac12}^-)
+  -\sqrt{a}\hat{q}_{h,j-\frac12}v(x_{j-\frac12}^+),
+  \label{eq:ldg_space1} \\
+  (q_h(t),r)_j&=-(\sqrt{a}u_h(t),r_x)_j
+  +\sqrt{a}\hat{u}_{h,j+\frac12}r(x_{j+\frac12}^-)
+  -\sqrt{a}\hat{u}_{h,j-\frac12}r(x_{j-\frac12}^+),
+  \label{eq:ldg_space2}
+\end{align}
+对任意$v,r\in V_h$成立,其中数值通量为交替形式的数值通量,
+\begin{align}
+\hat {q}_{h,j+\frac12}=q_{h,j+\frac12}^{+},\\
+\hat {u}_{h,j+\frac12}=u_{h,j+\frac12}^{-}.
+\end{align}
+考虑一阶向后Euler时间离散,
+\begin{align}
+  (u_h^{n+1},v)_j&=(u_h^{n},v)_j-\Delta t(\sqrt{a}q_h^{n+1},v_x)_j
+  +\Delta t\sqrt{a}({q}^{n+1}_{h,j+\frac12})^{+}v(x_{j+\frac12}^-)
+  -\Delta t\sqrt{a}({q}^{n+1}_{h,j-\frac12})^{+}v(x_{j-\frac12}^+),
+  \label{eq:ldg_st1} \\
+  (q_h^{n+1},r)_j&=-(\sqrt{a}u_h^{n+1},r_x)_j
+  +\sqrt{a}({u}^{n+1}_{h,j+\frac12})^{-}r(x_{j+\frac12}^-)
+  -\sqrt{a}({u}^{n+1}_{h,j-\frac12})^{-}r(x_{j-\frac12}^+).
+  \label{eq:ldg_st2}
+\end{align}
+
+\subsection{$P^0$情形}
+对于常系数的$P^0$情形,
+令$v=r=1$,
+\begin{align}
+  h_j\bar{u}^{n+1}_j&=h_j\bar{u}^{n}_j+\Delta t\sqrt{a}(\bar{q}^{n+1}_{j+1}
+  -\bar{q}^{n+1}_{j}), \\
+  h_j\bar{q}^{n+1}_j&=\sqrt{a}(\bar{u}^{n+1}_j-\bar{u}^{n+1}_{j-1}),
+\end{align}
+则\begin{equation}
+  \bar{u}^{n+1}_j=\bar{u}^{n}_j+\dfrac{a\Delta t}{h_j}
+  (\dfrac{\bar{u}^{n+1}_{j+1}-\bar{u}^{n+1}_{j}}{h_{j+1}}-\dfrac{\bar{u}^{n+1}_{j}-\bar{u}^{n+1}_{j-1}}{h_j}),
+\end{equation}
+当空间网格步长一致时,以上格式将变为隐式的三点中心差分格式.
+令解变量
+$\bar{\bu}^{n+1}=(\bar{u}_0^{n+1},\dots,\bar{u}_{N-1}^{n+1})^\mathrm{T}$,
+将上面的格式写成矩阵形式,
+\begin{equation}
+  T\bar{\bu}^{n+1}=L(\bar{\bu}^{n}),
+\end{equation}
+其中
+\begin{equation}
+  T=\begin{bmatrix}
+    1+\lambda_0(\doh{0}+\doh{1}) & -\lambda_0\doh{1} & \cdots & \cdots & -\lambda_j\doh{0} \\
+    \vdots & \ddots  & \ddots  & \ddots  & \vdots \\
+    \cdots & -\lambda_j\doh{j} & 1+\lambda_j(\doh{j}+\doh{j+1}) & -\lambda_j\doh{j+1} & \cdots \\
+    \vdots & \ddots  & \ddots  & \ddots  & \vdots \\
+    -\lambda_{N-1}\doh{0} & \cdots & \cdots & -\lambda_{N-1}\doh{N-1} & 1+\lambda_{N-1}(\doh{N-1}+\doh{0}) \\
+  \end{bmatrix},
+\end{equation}
+\begin{align}
+  \lambda_j=\dfrac{a\Delta t}{h_j},
+\end{align}
+\begin{equation}
+  L(\bar{u}^{n}) =\bar{u}^{n}.
+\end{equation}
+矩阵$T$是一个M矩阵,所以由$\bar{\bu}^n>0$可以得到$\bar{\bu}^{n+1}>0$.
+
+\subsection{$P^1$情形}
+在常系数的$P^1$情形中,需要用到以下Delta函数.
+令$T_j(x)=\dfrac{2(x-x_j)}{h_j}$,
+\begin{align}
+  \hat\delta^k(x)&=\dfrac12\sum_{l=0}^k(2l+1)p_k(x),\\
+  \hat\phi^k(x)&=\dfrac12\sum_{l=0}^k(2l+1)p_k(x)(-1)^l,\\
+  \delta^k(x)&=\dfrac{2}{h_j}\hat\delta^k(T_j(x)),\quad x\in I_j,\\
+  \phi^k(x)&=\dfrac{2}{h_j}\hat\phi^k(T_j(x)),\quad x\in I_j,
+\end{align}
+满足以下性质
+\begin{align}
+  (w,\delta^k_j(x))_j=w(x_{j+\frac12}),\\
+  (w,\phi^k_j(x))_j=w(x_{j-\frac12}).
+\end{align}
+在格式\eqref{eq:ldg_st1}中取$v=1$,
+\begin{align}
+  \bar{u}^{n+1}_j=\bar{u}^{n}_j
+  +\dfrac{\sqrt{a}\Delta t}{h_j}(q^{n+1}_{j+\frac12})^{+}
+  -\dfrac{\sqrt{a}\Delta t}{h_j}(q^{n+1}_{j-\frac12})^{+},
+  \label{eq:rel1}
+\end{align}
+在格式\eqref{eq:ldg_st1}中取
+\begin{align*}
+  v&=(\delta^1_j)(x)-(\delta^1_j)(x_{j-\frac12}) \\
+  &=\dfrac{2}{h_j}(\dfrac{1+3T_j(x)}{2}-(-1)),
+\end{align*}
+并注意到$v_x=\dfrac{6}{h_j^2}$,
+\begin{align}
+  (u^{n+1}_{j+\frac12})^{-}+2\bar{u}^{n+1}_j=(u^{n}_{j+\frac12})^{-}+2\bar{u}^n_j
+  -\dfrac{6\Delta t\sqrt{a}}{h_j}\bar{q}^{n+1}_j
+  +\dfrac{6\Delta t\sqrt{a}}{h_j}({q}^{n+1}_{j+\frac12})^{+},
+  \label{eq:rel2}
+\end{align}
+在格式\eqref{eq:ldg_st2}中取$r=1$,有
+\begin{equation}
+  \bar{q}^{n+1}_j=\dfrac{\sqrt{a}}{h_j}(u^{n+1}_{j+\frac12})^{-}-
+  \dfrac{\sqrt{a}}{h_j}(u^{n+1}_{j-\frac12})^{-},
+  \label{eq:rel3}
+\end{equation}
+在格式\eqref{eq:ldg_st2}中取
+\begin{align*}
+  r&=(\phi^1_j)(x)-(\phi^1_j)(x_{j+\frac12}) \\
+  &=\dfrac{2}{h_j}(\dfrac{1-3T_j(x)}{2}-(-1)),
+\end{align*}
+并注意到$r_x=-\dfrac{6}{h_j^2}$,
+\begin{align}
+  (q^{n+1}_{j-\frac12})^{+}+2\bar{q}^{n+1}_j=
+  \dfrac{6\sqrt{a}}{h_j}\bar{u}^{n+1}_j
+  -\dfrac{6\sqrt{a}}{h_j}({u}^{n+1}_{j-\frac12})^{-},
+  \label{eq:rel4}
+\end{align}
+将\eqref{eq:rel3}\eqref{eq:rel4}代入\eqref{eq:rel1},
+\begin{align}
+  \bar{u}^{n+1}_j=&\bar{u}^{n}_j
+  +\dfrac{\sqrt{a}\Delta t}{h_j}
+  \left(\dfrac{6\sqrt{a}}{h_{j+1}}\bar{u}^{n+1}_{j+1}
+    -\dfrac{6\sqrt{a}}{h_{j+1}}({u}^{n+1}_{j+\frac12})^{-}
+  -2\bar{q}^{n+1}_{j+1}\right) \nonumber \\
+  &-\dfrac{\sqrt{a}\Delta t}{h_j}
+  \left(\dfrac{6\sqrt{a}}{h_{j}}\bar{u}^{n+1}_{j}
+    -\dfrac{6\sqrt{a}}{h_{j}}({u}^{n+1}_{j-\frac12})^{-}
+  -2\bar{q}^{n+1}_{j}\right) \nonumber \\
+  =&\bar{u}^{n}_j+\dfrac{6a\Delta t}{h_jh_{j+1}}\bar{u}^{n+1}_{j+1}
+  -\dfrac{6a\Delta t}{h_j^2}\bar{u}^{n+1}_{j} \nonumber \\
+  &+\left(\dfrac{4a\Delta t}{h_j^2}\right)({u}^{n+1}_{j-\frac12})^{-}
+  +\left(-\dfrac{4a\Delta t}{h_jh_{j+1}}+\dfrac{2a\Delta t}{h_j^2}\right)({u}^{n+1}_{j+\frac12})^{-}
+    -\left(\dfrac{2a\Delta t}{h_jh_{j+1}}\right)({u}^{n+1}_{j+\frac32})^{-},
+    \nonumber
+\end{align}
+即
+\begin{align}
+  &\left(1+\dfrac{6a\Delta t}{h_j^2}\right)\bar{u}^{n+1}_{j}
+  -\dfrac{6a\Delta t}{h_jh_{j+1}}\bar{u}^{n+1}_{j+1}
+-\bar{u}^{n}_j \nonumber \\
+  =&\left(\dfrac{4a\Delta t}{h_j^2}\right)({u}^{n+1}_{j-\frac12})^{-}
+  +\left(-\dfrac{4a\Delta t}{h_jh_{j+1}}+\dfrac{2a\Delta t}{h_j^2}\right)({u}^{n+1}_{j+\frac12})^{-}
+  -\left(\dfrac{2a\Delta t}{h_jh_{j+1}}\right)({u}^{n+1}_{j+\frac32})^{-},
+  \label{eq:flux-av1}
+\end{align}
+将上式写为矩阵形式,
+\begin{equation}
+  T_1\cdot\bar{\bu}^{n+1}=L_1\cdot((\bu^{n+1})^{-})+L_2(\bu^n),
+  \label{eq:flux-av3}
+\end{equation}
+其中
+\begin{equation}
+  (\bu^{n+1})^{-}=((u^{n+1}_{\frac12})^{-},\dots,(u^{n+1}_{N-\frac12})^{-})^\mathrm{T},
+\end{equation}
+\begin{align}
+  T_1=\begin{bmatrix}
+    1+\dfrac{6a\Delta t}{h_0^2} & -\dfrac{6a\Delta t}{h_0h_{1}} & \cdots & \cdots \\
+    \vdots & \ddots  & \ddots   & \vdots \\
+    \cdots & 1+\dfrac{6a\Delta t}{h_j^2}& -\dfrac{6a\Delta t}{h_jh_{j+1}} & \cdots \\
+    \vdots & \ddots  & \ddots   & \vdots \\
+    -\dfrac{6a\Delta t}{h_{N-1}h_{0}} & \cdots & \cdots & 1+\dfrac{6a\Delta t}{h_{N-1}^2} \\
+    \end{bmatrix}
+\end{align}
+\begin{align}
+  L_1=
+  \begin{bmatrix}
+    \left(-\dfrac{4a\Delta t}{h_0h_{1}}+\dfrac{2a\Delta t}{h_0^2}\right)
+  & -\dfrac{2a\Delta t}{h_0h_{1}} & \cdots & \cdots & \dfrac{4a\Delta t}{h_0^2} \\
+    \vdots & \ddots  & \ddots  & \ddots  & \vdots \\
+  \cdots &\dfrac{4a\Delta t}{h_j^2} & \left(-\dfrac{4a\Delta t}{h_jh_{j+1}}+\dfrac{2a\Delta t}{h_j^2}\right)
+  & -\dfrac{2a\Delta t}{h_jh_{j+1}} & \cdots \\
+    \vdots & \ddots  & \ddots  & \ddots  & \vdots \\
+    -\dfrac{2a\Delta t}{h_{N-1}h_{0}} & \cdots & \cdots &\dfrac{4a\Delta
+    t}{h_{N-1}^2} & \left(-\dfrac{4a\Delta t}{h_{N-1}h_{0}}+\dfrac{2a\Delta
+    t}{h_{N-1}^2}\right)
+   \\
+  \end{bmatrix},
+\end{align}
+\begin{align}
+  L_2(\bu^n)=(\bar{u}^n_0,\dots, \bar{u}^n_{N-1})^\mathrm{T}.
+\end{align}
+
+将\eqref{eq:rel3}\eqref{eq:rel4}代入\eqref{eq:rel2},
+\begin{align}
+  (u^{n+1}_{j+\frac12})^{-}+2\bar{u}^{n+1}_j
+  =&(u^{n}_{j+\frac12})^{-}+2\bar{u}^n_j
+  -\dfrac{6\Delta t\sqrt{a}}{h_j}\bar{q}^{n+1}_j
+  +\dfrac{6\Delta t\sqrt{a}}{h_j}
+  \left(\dfrac{6\sqrt{a}}{h_{j+1}}\bar{u}^{n+1}_{j+1}
+    -\dfrac{6\sqrt{a}}{h_{j+1}}({u}^{n+1}_{j+\frac12})^{-}
+  -2\bar{q}^{n+1}_{j+1}\right) \nonumber \\
+  =&(u^{n}_{j+\frac12})^{-}+2\bar{u}^n_j
+  +\dfrac{36a\Delta t}{h_jh_{j+1}}
+  \left( \bar{u}^{n+1}_{j+1} -({u}^{n+1}_{j+\frac12})^{-}\right)
+  -\dfrac{6a\Delta t}{h_j^2}
+  \left( (u^{n+1}_{j+\frac12})^{-}-(u^{n+1}_{j-\frac12})^{-} \right)
+  \nonumber \\
+  &-\dfrac{12a\Delta t}{h_jh_{j+1}}
+  \left( (u^{n+1}_{j+\frac32})^{-}-(u^{n+1}_{j+\frac12})^{-} \right)
+  \nonumber \\
+  =&(u^{n}_{j+\frac12})^{-}+2\bar{u}^n_j
+  +\dfrac{36a\Delta t}{h_jh_{j+1}} \bar{u}^{n+1}_{j+1} \nonumber \\
+  &+\dfrac{6a\Delta t}{h_j^2}({u}^{n+1}_{j-\frac12})^{-}
+  -\left( \dfrac{24a\Delta t}{h_jh_{j+1}}+\dfrac{6a\Delta t}{h_j^2}\right)({u}^{n+1}_{j+\frac12})^{-}
+  -\dfrac{12a\Delta t}{h_jh_{j+1}}({u}^{n+1}_{j+\frac32})^{-}, \nonumber
+\end{align}
+即
+\begin{align}
+  &-\dfrac{6a\Delta t}{h_j^2}({u}^{n+1}_{j-\frac12})^{-}
+  +\left( 1+\dfrac{24a\Delta t}{h_jh_{j+1}}+\dfrac{6a\Delta t}{h_j^2}\right)({u}^{n+1}_{j+\frac12})^{-}
+  +\dfrac{12a\Delta t}{h_jh_{j+1}}({u}^{n+1}_{j+\frac32})^{-} \nonumber \\
+  =&(u^{n}_{j+\frac12})^{-}+2\bar{u}^n_j
+  -2\bar{u}^{n+1}_j +\dfrac{36a\Delta t}{h_jh_{j+1}} \bar{u}^{n+1}_{j+1},
+  \label{eq:flux-av2}
+\end{align}
+将上式写为矩阵形式,
+\begin{equation}
+  T_2\cdot(\bu^{n+1})^{-}=L_3\cdot(\bar{\bu}^{n+1})+L_4(\bu^n),
+\end{equation}
+其中
+\begin{equation}
+  (\bu^{n+1})^{-}=((u^{n+1}_{\frac12})^{-},\dots,(u^{n+1}_{N-\frac12})^{-})^\mathrm{T},
+\end{equation}
+\begin{align}
+  T_2=
+  \begin{bmatrix}
+  \left( 1+\dfrac{24a\Delta t}{h_0h_{1}}+\dfrac{6a\Delta t}{h_0^2}\right)
+  & \dfrac{12a\Delta t}{h_0h_{1}} & \cdots & \cdots & -\dfrac{6a\Delta t}{h_0^2} \\
+    \vdots & \ddots  & \ddots  & \ddots  & \vdots \\
+  \cdots &-\dfrac{6a\Delta t}{h_j^2} & \left( 1+\dfrac{24a\Delta t}{h_jh_{j+1}}+\dfrac{6a\Delta t}{h_j^2}\right)
+  & \dfrac{12a\Delta t}{h_jh_{j+1}} & \cdots \\
+    \vdots & \ddots  & \ddots  & \ddots  & \vdots \\
+    \dfrac{12a\Delta t}{h_{N-1}h_{0}} & \cdots & \cdots &-\dfrac{6a\Delta
+    t}{h_{N-1}^2} & \left( 1+\dfrac{24a\Delta t}{h_{N-1}h_{0}}+\dfrac{6a\Delta
+    t}{h_{N-1}^2}\right)
+   \\
+  \end{bmatrix},
+\end{align}
+\begin{align}
+  L_3=\begin{bmatrix}
+    -2 & \dfrac{36a\Delta t}{h_0h_{1}} & \cdots & \cdots \\
+    \vdots & \ddots  & \ddots   & \vdots \\
+    \cdots & -2 & \dfrac{36a\Delta t}{h_jh_{j+1}} & \cdots \\
+    \vdots & \ddots  & \ddots   & \vdots \\
+    \dfrac{36a\Delta t}{h_{N-1}h_{0}} & \cdots & \cdots & -2 \\
+    \end{bmatrix}
+\end{align}
+\begin{align}
+  L_4(\bu^n)=((u^{n}_{\frac12})^{-}+2\bar{u}^n_0,\dots,
+  (u^{n}_{N-\frac12})^{-}+2\bar{u}^n_{N-1})^\mathrm{T},
+\end{align}
+所以
+\begin{equation}
+  (\bu^{n+1})^{-}=T_2^{-1}L_3\cdot(\bar{\bu}^{n+1})+T_2^{-1}L_4(\bu^n).
+  \label{eq:flux-av4}
+\end{equation}
+代入\eqref{eq:flux-av3},
+\begin{align}
+  T_1\cdot\bar{\bu}^{n+1}=&L_1\cdot((\bu^{n+1})^{-})+L_2(\bu^n) \nonumber \\
+  =&L_1T_2^{-1}L_3\cdot(\bar{\bu}^{n+1})+L_1T_2^{-1}L_4(\bu^n)+L_2(\bu^n) \nonumber,
+\end{align}
+或者写成
+\begin{align}
+  (T_1-L_1T_2^{-1}L_3)\bar{\bu}^{n+1}=L_1T_2^{-1}L_4(\bu^n)+L_2(\bu^n) \nonumber,
+\end{align}
+$T_2$是一个对角严格占优的三对角循环矩阵,如何证明$(T_1-L_1T_2^{-1}L_3)$是一个M矩
+阵?
+
+假设网格是均匀剖分的,即每个网格长度均为$h$,则矩阵$T_1,T_2,L_1,L_3$均为循环矩阵,
+令
+\begin{equation}
+  D=\begin{bmatrix}
+    0 & 1 & \dots & \dots \\
+    0 & 0 & 1 & \dots \\
+    & \ddots & \ddots &\\
+    0 & \dots & 0 & 1 \\
+    1 & 0 & \dots & 0 \\
+  \end{bmatrix},
+\end{equation}
+满足$D^N=I$.令$\lambda=\dfrac{a\Delta t}{h^2}$,
+\begin{align}
+  T_1=&\left(1+6\lambda\right)I-6\lambda D, \\
+  T_2^{-1}=&a_0I+a_1D+\dots+a_{N-1}D^{N-1}, \\
+  L_1=&-2\lambda I-2\lambda D+4\lambda D^{N-1}, \\
+  L_3=&-2I+36\lambda D,
+\end{align}
+于是
+\begin{align}
+  (T_1-L_1T_2^{-1}L_3)=
+  &\{(1+6\lambda)-4\lambda[(1+36\lambda)a_0+(1-18\lambda)a_{N-1}-2a_1-18\lambda a_{N-2}]\}I \nonumber \\
+  &+\{-6\lambda-4\lambda[(1+36\lambda)a_1+(1-18\lambda)a_{0}-2a_2-18\lambda a_{N-1}]\}D\nonumber  \\
+  &+\dots\nonumber  \\
+  &+\{-4\lambda[(1+36\lambda)a_{N-1}+(1-18\lambda)a_{N-2}-2a_0-18\lambda a_{N-3}]\}D^{N-1} \nonumber,
+\end{align}
+
+
 \section{未完成的部分}
 \begin{enumerate}
   \item 非线性的算例稳态解精度依然不太对,部分算例还需要尝试,
-  \item 用到扩散项的证明需要补充,
   \item 可以考虑时间方向高阶?
 \end{enumerate}
 
